@@ -6,7 +6,10 @@
     <title>微火守候 | The Hearth Phase</title>
     <!-- 引入高质感古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <!-- WebRTC 通信库 -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- QR Code 生成库 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     
     <style>
         :root {
@@ -27,7 +30,7 @@
             overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
         }
 
-        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; }
         
         #hearthCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
@@ -43,7 +46,7 @@
         .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(247, 242, 234, 0.9); max-width: 320px; }
 
         .invite-btn {
-            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(255, 122, 24, 0.08); border: 1px solid rgba(255, 122, 24, 0.35);
+            margin-top: 1.5rem; padding: 0.75rem 1.8rem; background: rgba(255, 122, 24, 0.08); border: 1px solid rgba(255, 122, 24, 0.35);
             color: var(--flame-gold); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px;
             letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,122,24,0.1);
         }
@@ -83,14 +86,39 @@
         .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(255, 122, 24, 0.5); color: var(--flame-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,122,24,0.1); }
         .save-btn:active { background: rgba(255, 122, 24, 0.25); }
 
-        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(247,242,234,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
-        #renderCanvas { display: none; }
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(247,242,234,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+        
+        #renderCanvas, #posterCanvas { display: none; }
+
+        /* 海报模态框 */
+        .poster-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(10, 9, 8, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .poster-modal.show { opacity: 1; pointer-events: auto; }
+        .poster-content { position: relative; width: 85vw; max-width: 380px; }
+        .poster-content img { width: 100%; border-radius: 12px; box-shadow: 0 15px 40px rgba(0,0,0,0.8); display: block; }
+        .close-modal-btn { position: absolute; top: -45px; right: 0; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .poster-tip { margin-top: 1.5rem; color: rgba(247, 242, 234, 0.7); font-size: 0.85rem; letter-spacing: 0.1em; text-align: center; }
     </style>
 </head>
 <body>
     <div id="status-bar">环境初始化中...</div>
     <canvas id="hearthCanvas"></canvas>
+    
     <canvas id="renderCanvas" width="1080" height="1920"></canvas>
+    <canvas id="posterCanvas" width="1080" height="1920"></canvas>
+
+    <!-- 海报展示弹窗 -->
+    <div class="poster-modal" id="posterModal">
+        <div class="poster-content">
+            <span class="close-modal-btn" id="closeModalBtn">&times;</span>
+            <img id="posterImg" src="" alt="专属微火海报" />
+        </div>
+        <p class="poster-tip">长按上方海报保存，发送给伴侣</p>
+    </div>
 
     <div id="app">
         <!-- 状态一：余烬寻温 -->
@@ -99,7 +127,7 @@
             <p class="subtitle">在柴米油盐的疲惫里，让心重新依偎</p>
             <p class="instruction">请将两台手机平放于桌面，长边紧密贴合</p>
             
-            <button class="invite-btn" id="inviteBtn">复制房间链接发送给伴侣</button>
+            <button class="invite-btn" id="inviteBtn">生成专属微火海报</button>
 
             <div class="slider-container" id="alignSliderBox">
                 <div class="slider-text" id="sliderText">滑动向火光靠拢</div>
@@ -389,16 +417,73 @@
 
         function initUI() {
             const inviteBtn = document.getElementById('inviteBtn');
-            inviteBtn.addEventListener('click', () => {
+            const modal = document.getElementById('posterModal');
+            const closeBtn = document.getElementById('closeModalBtn');
+
+            // 全新：生成专属电影级邀请海报
+            inviteBtn.addEventListener('click', async () => {
                 if (window.location.protocol === 'file:') {
-                    alert("⚠️ 协议提醒 ⚠️\n\n请不要直接双击本地 HTML 文件 (file:///)。\n请使用 VS Code 'Live Server' 插件打开，这样才能跨设备联机！"); return;
+                    alert("⚠️ 协议错误提醒 ⚠️\n\n请使用 VS Code 'Live Server' 或部署在 HTTP 环境，才能生成有效连接和海报！"); return;
                 }
+                if (typeof QRCode === 'undefined') {
+                    alert("海报引擎加载中，请稍后重试..."); return;
+                }
+                
+                inviteBtn.innerText = "微火海报生成中...";
                 const url = window.location.href;
-                navigator.clipboard.writeText(url).then(() => {
-                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--ember-orange)";
-                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(255, 122, 24, 0.35)"; }, 3000);
-                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制地址栏"; });
+                
+                try {
+                    // 1. 生成二维码
+                    const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: '#ffffff', light: '#00000000' } });
+                    const qrImg = new Image();
+                    qrImg.src = qrDataUrl;
+                    
+                    qrImg.onload = () => {
+                        // 2. 绘制海报
+                        const canvas = document.getElementById('posterCanvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 背景底色与暖光晕
+                        ctx.fillStyle = '#0a0908'; ctx.fillRect(0, 0, 1080, 1920);
+                        const grad = ctx.createRadialGradient(540, 960, 50, 540, 960, 800);
+                        grad.addColorStop(0, 'rgba(255, 122, 24, 0.25)'); grad.addColorStop(1, 'rgba(10, 9, 8, 0)');
+                        ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
+                        
+                        // 顶部标题
+                        ctx.fillStyle = '#f7f2ea'; ctx.textAlign = 'center'; ctx.font = '70px "Noto Serif SC", serif'; ctx.fillText('微 火 守 候', 540, 380);
+                        
+                        // 浪漫金句
+                        ctx.fillStyle = 'rgba(247, 242, 234, 0.9)'; ctx.font = 'italic 46px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“留了一盏微火，等同路人归来”', 540, 560);
+                        
+                        // 绘制装饰火星 (模拟粒子飘散)
+                        ctx.fillStyle = '#ff7a18';
+                        for(let i = 0; i < 35; i++) {
+                            ctx.beginPath();
+                            ctx.arc(200 + Math.random() * 680, 600 + Math.random() * 150, Math.random() * 3 + 1, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        
+                        // 绘制二维码
+                        ctx.drawImage(qrImg, 390, 800, 300, 300);
+                        
+                        // 底部文案
+                        ctx.fillStyle = 'rgba(255, 179, 71, 0.8)'; ctx.font = '36px "Noto Serif SC", serif'; ctx.fillText('长按识别二维码 · 进入专属微火房间', 540, 1300);
+                        
+                        // 防封提示
+                        ctx.fillStyle = 'rgba(247, 242, 234, 0.5)'; ctx.font = '28px "Noto Serif SC", serif'; ctx.fillText('请点击右上角「在默认浏览器中打开」以唤醒传感器', 540, 1380);
+
+                        // 3. 显示弹窗
+                        document.getElementById('posterImg').src = canvas.toDataURL('image/png');
+                        modal.classList.add('show');
+                        inviteBtn.innerText = "生成专属微火海报";
+                    };
+                } catch (e) {
+                    inviteBtn.innerText = "海报生成失败，请重试";
+                    console.error(e);
+                }
             });
+
+            closeBtn.addEventListener('click', () => modal.classList.remove('show'));
 
             // 完美的全局触摸解锁音频防拦截机制
             const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
@@ -473,7 +558,32 @@
             }
         };
 
-        window.addEventListener('DOMContentLoaded', () => { CanvasEngine.init(); RTC.init(); initUI(); });
+        // 微信防拦截遮罩层检测
+        function checkWeChat() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.match(/MicroMessenger/i) == "micromessenger") {
+                const mask = document.createElement('div');
+                mask.style.cssText = `position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 9, 8, 0.98); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 15vh; color: #ff7a18; font-family: 'Noto Serif SC', serif; text-align: center;`;
+                mask.innerHTML = `
+                    <div style="position:absolute; top: 20px; right: 30px; font-size: 3.5rem; animation: float 1s infinite alternate;">↗</div>
+                    <h2 style="font-weight: 400; letter-spacing: 0.1em; margin-bottom: 1.5rem;">请前往独立空间</h2>
+                    <p style="color: rgba(247,242,234,0.8); font-size: 1.1rem; width: 85%; line-height: 2;">
+                        微信环境无法唤醒环境传感器。<br><br>请点击右上角【···】<br>选择在 <b>Safari</b> 或 <b>默认浏览器</b> 中打开以建立连接。
+                    </p>
+                    <style>@keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(10px, -10px); } }</style>
+                `;
+                document.body.appendChild(mask);
+                return true;
+            }
+            return false;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { 
+            if (checkWeChat()) return; 
+            CanvasEngine.init(); 
+            RTC.init(); 
+            initUI(); 
+        });
         window.addEventListener('beforeunload', () => location.hash = '');
     </script>
 </body>
