@@ -173,56 +173,130 @@
                 if (this.state === 1 || this.state === 4 || this.disturbed) return;
                 this.disturbed = true; RTC.send({ type: 'DISTURBED' }); this.setState(1);
                 this.els.status.innerText = "阵营动摇，磐石现裂纹";
+                AudioEngine.playCrack(); // 新增：播放岩石断裂的深沉碎裂音
                 if ('vibrate' in navigator) { try{ navigator.vibrate([120, 60, 120]); }catch(e){} }
                 setTimeout(() => { this.disturbed = false; }, 2000);
             }
         };
 
         /**
-         * 纯正声学引擎：多谐波地壳共振算法
+         * 纯正声学引擎：极地深渊与岩石摩擦算法 (彻底解决刺耳问题)
          */
         const AudioEngine = {
-            ctx: null, oscs: [], gainNode: null, initialized: false,
+            ctx: null, oscs: [], gainNode: null, noiseSrc: null, initialized: false,
             forceUnlock() {
                 if(this.initialized) return;
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
             },
+            // 核心黑科技：生成极其温润厚重的布朗噪声 (Brown Noise) 模拟地层深处的岩石摩擦
+            createBrownNoiseBuffer() {
+                const bufferSize = this.ctx.sampleRate * 2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                let lastOut = 0;
+                for (let i = 0; i < bufferSize; i++) {
+                    let white = Math.random() * 2 - 1;
+                    output[i] = (lastOut + (0.02 * white)) / 1.02; // 低通积分，滤除所有刺耳高频，形成温暖的轰鸣
+                    lastOut = output[i];
+                    output[i] *= 3.5; // 增益补偿
+                }
+                return buffer;
+            },
             playResonance() {
                 this.forceUnlock();
-                if (this.oscs.length > 0) return;
-                // 倍频合成法，突破手机微型扬声器低频限制
-                const freqs = [55, 110, 165, 220];
+                if (this.gainNode) return;
+                
                 this.gainNode = this.ctx.createGain();
                 this.gainNode.gain.setValueAtTime(0.01, this.ctx.currentTime);
-                this.gainNode.gain.exponentialRampToValueAtTime(0.4, this.ctx.currentTime + 1.5);
+                this.gainNode.gain.exponentialRampToValueAtTime(0.8, this.ctx.currentTime + 3); // 极度缓慢厚重的淡入
                 this.gainNode.connect(this.ctx.destination);
 
-                freqs.forEach((f, idx) => {
+                // 1. 深渊共鸣：使用纯净低频正弦波 (55Hz 根音 + 82.5Hz 纯五度) 构筑极其稳定不刺耳的听觉基石
+                const freqs = [55, 82.5];
+                freqs.forEach(f => {
                     const osc = this.ctx.createOscillator();
-                    osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+                    osc.type = 'sine';
                     osc.frequency.value = f;
                     osc.connect(this.gainNode);
                     osc.start();
                     this.oscs.push(osc);
                 });
+
+                // 2. 地壳板块摩擦声：将布朗噪声经过 150Hz 低通滤波，辅以极其缓慢的 LFO 模拟庞大质量移动的呼吸感
+                const noiseSrc = this.ctx.createBufferSource();
+                noiseSrc.buffer = this.createBrownNoiseBuffer();
+                noiseSrc.loop = true;
+
+                const lowpass = this.ctx.createBiquadFilter();
+                lowpass.type = 'lowpass';
+                lowpass.frequency.value = 150; 
+
+                const lfo = this.ctx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.2; // 0.2Hz 的超慢板块移动周期，极具压迫感的沉浸氛围
+                const lfoGain = this.ctx.createGain();
+                lfoGain.gain.value = 50; 
+                lfo.connect(lfoGain);
+                lfoGain.connect(lowpass.frequency);
+                lfo.start();
+                this.oscs.push(lfo);
+
+                const noiseVolume = this.ctx.createGain();
+                noiseVolume.gain.value = 1.5; // 提升一点深沉摩擦声的占比
+
+                noiseSrc.connect(lowpass);
+                lowpass.connect(noiseVolume);
+                noiseVolume.connect(this.gainNode);
+                noiseSrc.start();
+                this.noiseSrc = noiseSrc;
             },
             fadeResonance() {
                 if (this.gainNode && this.ctx) {
-                    this.gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 3);
+                    // 10秒后进入沉淀期，声音变得极其微弱、安静、有托底感
+                    this.gainNode.gain.exponentialRampToValueAtTime(0.05, this.ctx.currentTime + 3);
                 }
             },
+            playCrack() {
+                this.forceUnlock();
+                this.stopResonance();
+                // 模拟岩石崩裂的低沉碎裂声，取代高频刺耳的沙沙声
+                const bufferSize = this.ctx.sampleRate * 0.5; 
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.08));
+                
+                const noise = this.ctx.createBufferSource(); 
+                noise.buffer = buffer;
+                
+                const filter = this.ctx.createBiquadFilter(); 
+                filter.type = 'lowpass'; // 只保留低频碎裂声，绝不刺耳
+                filter.frequency.value = 400; 
+                
+                const gain = this.ctx.createGain(); 
+                gain.gain.setValueAtTime(1.0, this.ctx.currentTime); 
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                
+                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); 
+                noise.start();
+            },
             stopResonance() {
-                if (this.oscs.length > 0 && this.ctx) {
-                    this.oscs.forEach(osc => { try{ osc.stop(); }catch(e){} });
-                    this.oscs = []; this.gainNode = null;
+                if (this.gainNode && this.ctx) {
+                    this.gainNode.gain.cancelScheduledValues(this.ctx.currentTime);
+                    this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, this.ctx.currentTime);
+                    this.gainNode.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    setTimeout(() => {
+                        this.oscs.forEach(osc => { try{ osc.stop(); }catch(e){} });
+                        this.oscs = [];
+                        if (this.noiseSrc) { try{ this.noiseSrc.stop(); }catch(e){} this.noiseSrc = null; }
+                        this.gainNode = null;
+                    }, 500);
                 }
             }
         };
 
         /**
-         * 全新引擎：底层动态地脉线条 (BgBedrockEngine)
-         * 渲染缓慢流动的熔金等高线，营造厚重的地质感
+         * 底层动态地脉线条 (BgBedrockEngine)
          */
         const BgBedrockEngine = {
             canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, time: 0,
@@ -238,11 +312,11 @@
                 const w = window.innerWidth; const h = window.innerHeight;
                 this.ctx.fillStyle = '#0b0c0e';
                 this.ctx.fillRect(0, 0, w, h);
-                this.time += 0.003; // 极其缓慢的流动感
+                this.time += 0.003; 
                 
                 const lines = 8;
                 for(let i = 0; i < lines; i++) {
-                    const depth = i / (lines - 1); // 0 (远) 到 1 (近)
+                    const depth = i / (lines - 1); 
                     const baseY = h * 0.4 + depth * (h * 0.5); 
                     const amplitude = 15 + depth * 40;
                     const freq = 0.001 + (1 - depth) * 0.002;
@@ -251,7 +325,6 @@
                     this.ctx.beginPath();
                     this.ctx.moveTo(0, baseY);
                     for(let x = 0; x <= w; x += 15) {
-                        // 有机地形起伏波形
                         const y = baseY + Math.sin(x * freq + this.time + i) * amplitude + Math.cos(x * freq * 0.8 - this.time * 0.5) * amplitude * 0.5;
                         this.ctx.lineTo(x, y);
                     }
@@ -259,7 +332,6 @@
                     this.ctx.lineWidth = 1.5;
                     this.ctx.stroke();
                     
-                    // 熔岩光晕渐变
                     this.ctx.lineTo(w, h);
                     this.ctx.lineTo(0, h);
                     this.ctx.closePath();
@@ -294,7 +366,7 @@
             start() { if (!this.reqId) this.draw(); },
             draw() {
                 const w = window.innerWidth; const h = window.innerHeight;
-                this.ctx.clearRect(0, 0, w, h); // 仅清理上层
+                this.ctx.clearRect(0, 0, w, h); 
                 
                 const jointX = App.isHost ? w : 0;
                 const bedrockWidth = w * 0.4;
@@ -307,7 +379,6 @@
                     this.ctx.fillRect(App.isHost ? w - bedrockWidth : 0, 0, bedrockWidth, h);
                 }
 
-                // 绘制粉尘/杂质动效
                 this.dustParticles.forEach(p => {
                     p.x += p.vx; p.y += p.vy;
                     if(p.x < 0) p.x = w; if(p.x > w) p.x = 0;
@@ -391,7 +462,6 @@
             const modal = document.getElementById('posterModal');
             const closeBtn = document.getElementById('closeModalBtn');
 
-            // 电影级海报生成逻辑
             inviteBtn.addEventListener('click', async () => {
                 if (window.location.protocol === 'file:') {
                     alert("⚠️ 协议错误提醒 ⚠️\n\n请使用 VS Code 'Live Server' 或部署在 HTTP 环境，才能生成有效连接和海报！"); return;
@@ -404,52 +474,40 @@
                 const url = window.location.href;
                 
                 try {
-                    // 1. 生成二维码
                     const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: '#ffffff', light: '#00000000' } });
                     const qrImg = new Image();
                     qrImg.src = qrDataUrl;
                     
                     qrImg.onload = () => {
-                        // 2. 绘制海报
                         const canvas = document.getElementById('posterCanvas');
                         const ctx = canvas.getContext('2d');
                         
-                        // 底色与地脉光晕
                         ctx.fillStyle = '#0b0c0e'; ctx.fillRect(0, 0, 1080, 1920);
                         const grad = ctx.createRadialGradient(540, 960, 50, 540, 960, 800);
                         grad.addColorStop(0, 'rgba(212, 175, 55, 0.25)'); grad.addColorStop(1, 'rgba(11, 12, 14, 0)');
                         ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
                         
-                        // 顶部标题
                         ctx.fillStyle = '#f1f5f9'; ctx.textAlign = 'center'; ctx.font = '70px "Noto Serif SC", serif'; ctx.fillText('重 力 筑 基', 540, 380);
                         
-                        // 浪漫金句
                         ctx.fillStyle = 'rgba(241, 245, 249, 0.9)'; ctx.font = 'italic 46px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“在两姓的喧嚣外，立下了一方磐石”', 540, 560);
                         
-                        // 绘制地脉装饰线
                         ctx.beginPath();
                         for (let x = 200; x <= 880; x += 15) {
                             ctx.lineTo(x, 650 + Math.sin(x * 0.02) * 20);
                         }
                         ctx.strokeStyle = 'rgba(212, 175, 55, 0.5)'; ctx.lineWidth = 2.5; ctx.stroke();
                         
-                        // 绘制二维码
                         ctx.drawImage(qrImg, 390, 800, 300, 300);
                         
-                        // 底部文案
                         ctx.fillStyle = 'rgba(212, 175, 55, 0.8)'; ctx.font = '36px "Noto Serif SC", serif'; ctx.fillText('长按识别二维码 · 进入专属盟约房间', 540, 1300);
-                        
-                        // 防封提示
                         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.font = '28px "Noto Serif SC", serif'; ctx.fillText('请点击右上角「在默认浏览器中打开」以唤醒传感器', 540, 1380);
 
-                        // 3. 显示弹窗
                         document.getElementById('posterImg').src = canvas.toDataURL('image/png');
                         modal.classList.add('show');
                         inviteBtn.innerText = "生成专属盟约海报";
                     };
                 } catch (e) {
-                    inviteBtn.innerText = "海报生成失败，请重试";
-                    console.error(e);
+                    inviteBtn.innerText = "海报生成失败，请重试"; console.error(e);
                 }
             });
 
@@ -523,7 +581,6 @@
             }
         };
 
-        // 微信防拦截遮罩层检测
         function checkWeChat() {
             const ua = navigator.userAgent.toLowerCase();
             if (ua.match(/MicroMessenger/i) == "micromessenger") {
