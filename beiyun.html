@@ -6,7 +6,10 @@
     <title>双心摇篮 | The Pulse Phase</title>
     <!-- 引入高质感古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <!-- WebRTC 通信库 -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- QR Code 生成库 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     
     <style>
         :root {
@@ -31,13 +34,13 @@
         }
 
         /* 模拟 iOS 缺失物理震动时的视觉心跳补偿 */
-        body.heartbeat-flash {
-            transform: scale(1.008);
-            filter: brightness(1.15);
-        }
+        body.heartbeat-flash { transform: scale(1.008); filter: brightness(1.15); }
 
-        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; }
         
+        /* 底层：规整爱心粒子引擎 */
+        #bgCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        /* 前景：双屏光茧融合引擎 */
         #cocoonCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
         .state-layer {
@@ -47,36 +50,36 @@
         }
         .state-layer.active { opacity: 1; pointer-events: auto; }
 
-        h1 { font-size: 2rem; font-weight: 400; letter-spacing: 0.25em; margin-bottom: 0.5rem; color: var(--warm-jade); text-shadow: 0 0 20px rgba(244,162,97,0.2); }
+        h1 { font-size: 2.1rem; font-weight: 400; letter-spacing: 0.25em; margin-bottom: 0.5rem; color: var(--warm-jade); text-shadow: 0 0 20px rgba(244,162,97,0.3); }
         .subtitle { font-size: 0.95rem; color: rgba(232, 223, 207, 0.6); letter-spacing: 0.1em; margin-bottom: 2rem; }
-        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(232, 223, 207, 0.85); max-width: 320px; }
+        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(232, 223, 207, 0.9); max-width: 320px; }
 
         .invite-btn {
-            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(244, 162, 97, 0.08); border: 1px solid rgba(244, 162, 97, 0.3);
+            margin-top: 1.5rem; padding: 0.75rem 1.8rem; background: rgba(244, 162, 97, 0.08); border: 1px solid rgba(244, 162, 97, 0.35);
             color: var(--heart-orange); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px;
             letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(244,162,97,0.1);
         }
         .invite-btn:active { background: rgba(244, 162, 97, 0.2); }
 
-        .slider-container { position: absolute; bottom: 12%; width: 220px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; display: flex; align-items: center; }
+        .slider-container { position: absolute; bottom: 12%; width: 220px; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; display: flex; align-items: center; }
         .slider-thumb {
             width: 48px; height: 48px; background: rgba(244, 162, 97, 0.15); border: 1px solid rgba(244, 162, 97, 0.6); border-radius: 50%;
-            position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(244, 162, 97, 0.3); transition: box-shadow 0.3s;
+            position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(244, 162, 97, 0.4); transition: box-shadow 0.3s;
         }
         .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--heart-orange); border-radius: 50%; box-shadow: 0 0 15px var(--heart-orange); }
-        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(232, 223, 207, 0.5); pointer-events: none; letter-spacing: 0.1em; }
+        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(232, 223, 207, 0.6); pointer-events: none; letter-spacing: 0.1em; }
 
         /* 核心防溢出、高可读性深海毛玻璃面板 */
         .glass-panel {
-            background: rgba(10, 13, 18, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(244, 162, 97, 0.2); padding: 2.2rem 1.6rem; border-radius: 16px; 
+            background: rgba(10, 13, 18, 0.88); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(244, 162, 97, 0.25); padding: 2.2rem 1.6rem; border-radius: 16px; 
             width: 90vw; max-width: 360px; margin-bottom: 2rem; 
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(244, 162, 97, 0.05);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.95), inset 0 0 20px rgba(244, 162, 97, 0.05);
         }
         .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(232, 223, 207, 0.95); }
         .glass-panel p:last-child { margin-bottom: 0; }
         .highlight { color: var(--warm-jade); font-weight: 600; text-shadow: 0 0 10px rgba(232,223,207,0.3); }
-        .action-point { color: var(--heart-orange); font-weight: 400; } /* 动作指引采用心室橙 */
+        .action-point { color: var(--heart-orange); font-weight: 400; } 
 
         .hold-btn-wrapper { position: absolute; bottom: 8%; width: 90px; height: 90px; display: flex; justify-content: center; align-items: center; }
         .hold-btn { width: 66px; height: 66px; border-radius: 50%; background: rgba(244, 162, 97, 0.1); border: 1px solid rgba(244, 162, 97, 0.5); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; font-weight: 600; color: var(--heart-orange); z-index: 2; letter-spacing: 0.05em;}
@@ -87,26 +90,55 @@
         .cradle-seal::before { content: ''; position: absolute; width: 60px; height: 60px; border: 1px solid rgba(232,223,207,0.4); border-radius: 50%; }
         .cradle-seal::after { content: ''; position: absolute; width: 20px; height: 20px; background: var(--warm-jade); border-radius: 50%; box-shadow: 0 0 20px var(--warm-jade); }
 
-        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(244, 162, 97, 0.5); color: var(--heart-orange); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(244,162,97,0.1); }
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(244, 162, 97, 0.5); color: var(--heart-orange); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(244,162,97,0.15); }
         .save-btn:active { background: rgba(244, 162, 97, 0.25); }
 
-        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(232,223,207,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
-        #renderCanvas { display: none; }
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(232,223,207,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+        
+        #renderCanvas, #posterCanvas { display: none; }
+
+        /* 海报模态框 */
+        .poster-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(10, 13, 18, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .poster-modal.show { opacity: 1; pointer-events: auto; }
+        .poster-content { position: relative; width: 85vw; max-width: 380px; }
+        .poster-content img { width: 100%; border-radius: 12px; box-shadow: 0 15px 40px rgba(0,0,0,0.8); display: block; }
+        .close-modal-btn { position: absolute; top: -45px; right: 0; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .poster-tip { margin-top: 1.5rem; color: rgba(232, 223, 207, 0.7); font-size: 0.85rem; letter-spacing: 0.1em; text-align: center; }
     </style>
 </head>
 <body>
     <div id="status-bar">环境初始化中...</div>
+    
+    <!-- 动态心形粒子底层 -->
+    <canvas id="bgCanvas"></canvas>
+    <!-- 边缘光茧交叠中层 -->
     <canvas id="cocoonCanvas"></canvas>
+    
     <canvas id="renderCanvas" width="1080" height="1920"></canvas>
+    <canvas id="posterCanvas" width="1080" height="1920"></canvas>
+
+    <!-- 海报展示弹窗 -->
+    <div class="poster-modal" id="posterModal">
+        <div class="poster-content">
+            <span class="close-modal-btn" id="closeModalBtn">&times;</span>
+            <img id="posterImg" src="" alt="专属摇篮海报" />
+        </div>
+        <p class="poster-tip">长按上方海报保存，发送给伴侣</p>
+    </div>
 
     <div id="app">
         <!-- 状态一：脉搏寻迹 -->
         <div id="state1" class="state-layer active">
             <h1 ondblclick="DEV_MODE.simulateConnection()">双心摇篮</h1>
             <p class="subtitle">在功利与期待之外，抚摸一颗为你跳动的心</p>
-            <p class="instruction">请将两台手机平放于桌面，长边紧密贴合</p>
+            <p class="instruction">请将两台手机平放于桌面，长边紧贴</p>
             
-            <button class="invite-btn" id="inviteBtn">复制房间链接发送给伴侣</button>
+            <button class="invite-btn" id="inviteBtn">生成专属摇篮海报</button>
 
             <div class="slider-container" id="alignSliderBox">
                 <div class="slider-text" id="sliderText">滑动光弧感知脉搏</div>
@@ -114,7 +146,7 @@
             </div>
         </div>
 
-        <!-- 状态二：光茧共振与触觉交叠 (Canvas 渲染) -->
+        <!-- 状态二：光茧共振与触觉交叠 -->
         <div id="state2" class="state-layer"></div>
 
         <!-- 状态三：解绑目的与深层托底 -->
@@ -159,7 +191,7 @@
                     CanvasEngine.start(); AudioEngine.startHeartbeat(); SensorEngine.startMonitoring();
                     setTimeout(() => {
                         if (this.state === 2 && !this.disturbed) {
-                            this.setState(3); CanvasEngine.fadeToCalm(); AudioEngine.fadeToCalm();
+                            this.setState(3); CanvasEngine.fadeToCalm(); AudioEngine.fadeToCalm(); BgPulseEngine.fadeToCalm();
                         }
                     }, 10000);
                 }
@@ -168,6 +200,7 @@
                 if (this.state === 1 || this.state === 4 || this.disturbed) return;
                 this.disturbed = true; RTC.send({ type: 'DISTURBED' }); this.setState(1);
                 this.els.status.innerText = "光茧破裂，心跳紊乱";
+                BgPulseEngine.isCalm = false;
                 AudioEngine.playRupture();
                 if ('vibrate' in navigator) { try{ navigator.vibrate([40, 20, 100, 30, 200]); }catch(e){} }
                 setTimeout(() => { this.disturbed = false; }, 2000);
@@ -184,18 +217,15 @@
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
             },
-            // 医学级心跳声音合成 (Lub-Dub)
             triggerHeartSound(time, baseFreq, decayTime, gainVol) {
                 if (!this.ctx) return;
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'sine';
                 
-                // 频率滑降
                 osc.frequency.setValueAtTime(baseFreq, time);
                 osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.6, time + decayTime);
                 
-                // 完美的平滑增益包络，彻底消除 Pop 音
                 gain.gain.setValueAtTime(0.0001, time);
                 gain.gain.exponentialRampToValueAtTime(gainVol, time + 0.02);
                 gain.gain.exponentialRampToValueAtTime(0.0001, time + decayTime);
@@ -206,12 +236,9 @@
             playSingleBeat() {
                 if (!this.ctx) return;
                 const t = this.ctx.currentTime;
-                // S1 (Lub)
                 this.triggerHeartSound(t, 65, 0.12, this.isCalm ? 0.4 : 0.8);
-                // S2 (Dub)
                 this.triggerHeartSound(t + 0.28, 85, 0.10, this.isCalm ? 0.3 : 0.6);
 
-                // 触觉与视觉补偿
                 if (!this.isCalm) {
                     if ('vibrate' in navigator) { try{ navigator.vibrate([40, 80, 25]); }catch(e){} }
                     document.body.classList.add('heartbeat-flash');
@@ -221,15 +248,12 @@
             startHeartbeat() {
                 this.forceUnlock();
                 this.isCalm = false;
-                this.bpm = App.isHost ? 62 : 68; // 两台手机不同的基础心率，产生交错感
+                this.bpm = App.isHost ? 62 : 68;
                 const intervalMs = (60 / this.bpm) * 1000;
-                
-                this.playSingleBeat(); // 立即触发第一次
+                this.playSingleBeat(); 
                 this.beatTimer = setInterval(() => this.playSingleBeat(), intervalMs);
             },
-            fadeToCalm() {
-                this.isCalm = true; // 降低音量，停止屏幕闪烁与马达，进入平缓期
-            },
+            fadeToCalm() { this.isCalm = true; },
             playRupture() {
                 this.forceUnlock();
                 this.stopHeartbeat();
@@ -240,6 +264,81 @@
             },
             stopHeartbeat() {
                 if (this.beatTimer) { clearInterval(this.beatTimer); this.beatTimer = null; }
+            }
+        };
+
+        /**
+         * 全新：底层绝对规整、高级的爱心粒子引擎 (极简不喧宾夺主)
+         */
+        const BgPulseEngine = {
+            canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, hearts: [], isCalm: false,
+            init() {
+                this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
+                for(let i=0; i<25; i++) this.hearts.push(this.createHeart(true)); // 仅 25 个，保持极简
+                this.start();
+            },
+            resize() {
+                const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
+            },
+            createHeart(init = false) {
+                const h = window.innerHeight; const w = window.innerWidth;
+                return {
+                    x: Math.random() * w,
+                    y: init ? Math.random() * h : h + 20,
+                    size: Math.random() * 0.8 + 0.4, // 爱心极小，保持内敛
+                    speedY: Math.random() * 0.5 + 0.2, // 极其缓慢地上升
+                    speedX: Math.random() * 0.3 - 0.15,
+                    maxOpacity: Math.random() * 0.1 + 0.05, // 极低的透明度，绝不刺眼
+                    opacity: 0,
+                    phase: Math.random() * Math.PI * 2
+                };
+            },
+            fadeToCalm() { this.isCalm = true; },
+            // 使用完美贝塞尔曲线绘制标准爱心
+            drawHeartPath(ctx, x, y, size, opacity) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.scale(size, size);
+                ctx.beginPath();
+                const topCurveHeight = 0.3;
+                ctx.moveTo(0, topCurveHeight);
+                ctx.bezierCurveTo(-0.5, -topCurveHeight, -1, 1.5 * topCurveHeight, 0, 1);
+                ctx.bezierCurveTo(1, 1.5 * topCurveHeight, 0.5, -topCurveHeight, 0, topCurveHeight);
+                ctx.fillStyle = `rgba(244, 162, 97, ${opacity})`;
+                ctx.fill();
+                ctx.restore();
+            },
+            start() { if (!this.ctx) this.init(); this.draw(); },
+            draw() {
+                const w = window.innerWidth; const h = window.innerHeight;
+                this.ctx.clearRect(0, 0, w, h);
+
+                this.ctx.globalCompositeOperation = 'lighter';
+                
+                this.hearts.forEach(p => {
+                    let currentVy = this.isCalm ? p.speedY * 0.5 : p.speedY; 
+                    p.y -= currentVy;
+                    p.x += Math.sin(p.y * 0.01 + p.phase) * 0.3 + p.speedX; // 微弱摇曳
+                    
+                    // 淡入淡出逻辑：中上部自然消散
+                    if (p.y > h * 0.8) {
+                        p.opacity = p.maxOpacity * (1 - (p.y - h * 0.8) / (h * 0.2));
+                    } else if (p.y < h * 0.3) {
+                        p.opacity = p.maxOpacity * (p.y / (h * 0.3));
+                    } else {
+                        p.opacity = p.maxOpacity;
+                    }
+
+                    if (p.opacity > 0) {
+                        // 使用 30 倍率放大绘制，因为基础公式为 -1 到 1 的标准化坐标
+                        this.drawHeartPath(this.ctx, p.x, p.y, p.size * 30, p.opacity);
+                    }
+
+                    if (p.y < 0) Object.assign(p, this.createHeart());
+                });
+                
+                this.ctx.globalCompositeOperation = 'source-over';
+                this.reqId = requestAnimationFrame(() => this.draw());
             }
         };
 
@@ -264,8 +363,7 @@
                 
                 const t = (Date.now() - App.epoch) / 1000;
                 
-                // 模拟细胞呼吸跳动的半径参数
-                const bpmFreq = (App.isHost ? 62 : 68) / 60; // 每秒跳动次数
+                const bpmFreq = (App.isHost ? 62 : 68) / 60;
                 const pulse = Math.abs(Math.sin(Math.PI * bpmFreq * t)); 
                 const baseR = this.isCalm ? 120 : 150;
                 const r = baseR + (this.isCalm ? 10 : 30) * pulse;
@@ -273,7 +371,6 @@
                 const jointX = App.isHost ? w : 0;
                 const centerY = h / 2;
 
-                // 绘制光茧核心发光
                 const grad = this.ctx.createRadialGradient(jointX, centerY, r * 0.2, jointX, centerY, r * 2.5);
                 grad.addColorStop(0, this.isCalm ? 'rgba(232, 223, 207, 0.4)' : 'rgba(244, 162, 97, 0.6)');
                 grad.addColorStop(0.5, this.isCalm ? 'rgba(232, 223, 207, 0.1)' : 'rgba(244, 162, 97, 0.15)');
@@ -281,7 +378,6 @@
                 this.ctx.fillStyle = grad;
                 this.ctx.fillRect(0, 0, w, h);
 
-                // 绘制细胞膜波动边缘
                 this.ctx.beginPath();
                 this.ctx.strokeStyle = this.isCalm ? 'rgba(232, 223, 207, 0.3)' : 'rgba(244, 162, 97, 0.5)';
                 this.ctx.lineWidth = 3;
@@ -318,10 +414,7 @@
             handleOrientation: (e) => {
                 if (App.state !== 2 && App.state !== 3) return;
                 if (SensorEngine.baseBeta === null) { SensorEngine.baseBeta = e.beta; SensorEngine.baseGamma = e.gamma; return; }
-                
-                // EMA 滤波抗手抖 (死区容错)
-                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); 
-                const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
+                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
                 if (dBeta > 12 || dGamma > 12) App.triggerDisturb();
             },
             handleVisibility: () => {
@@ -339,7 +432,7 @@
 
                 this.peer = new Peer(hostId);
                 this.peer.on('open', () => {
-                    App.isHost = true; App.els.status.innerText = `当前房间: ${hash} | 等待伴侣加入...`;
+                    App.isHost = true; App.els.status.innerText = `当前摇篮: ${hash} | 等待伴侣加入...`;
                     this.peer.on('connection', (c) => { this.conn = c; this.setupConnection(); });
                 });
                 this.peer.on('error', (err) => {
@@ -353,7 +446,7 @@
             },
             setupConnection() {
                 this.conn.on('open', () => {
-                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方光点";
+                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方光弧";
                     if (App.isHost) { App.epoch = Date.now(); this.send({ type: 'SYNC', epoch: App.epoch }); }
                 });
                 this.conn.on('data', (data) => {
@@ -366,21 +459,65 @@
             },
             send(data) { if (this.connected && this.conn) this.conn.send(data); },
             setLocalSliding(state) { this.localSliding = state; this.send({ type: 'SLIDING', state: state }); this.checkSyncSlide(); },
-            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "光茧融合中..."; setTimeout(() => App.setState(2), 200); } }
+            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "心跳共振中..."; setTimeout(() => App.setState(2), 200); } }
         };
 
         function initUI() {
             const inviteBtn = document.getElementById('inviteBtn');
-            inviteBtn.addEventListener('click', () => {
+            const modal = document.getElementById('posterModal');
+            const closeBtn = document.getElementById('closeModalBtn');
+
+            // 电影级海报生成逻辑
+            inviteBtn.addEventListener('click', async () => {
                 if (window.location.protocol === 'file:') {
-                    alert("⚠️ 协议提醒 ⚠️\n\n请不要直接双击本地 HTML 文件 (file:///)。\n请使用 VS Code 'Live Server' 插件打开，这样才能跨设备联机！"); return;
+                    alert("⚠️ 协议错误提醒 ⚠️\n\n请使用 VS Code 'Live Server' 或部署在 HTTP 环境，才能生成有效连接和海报！"); return;
                 }
+                if (typeof QRCode === 'undefined') {
+                    alert("海报引擎加载中，请稍后重试..."); return;
+                }
+                
+                inviteBtn.innerText = "海报生成中...";
                 const url = window.location.href;
-                navigator.clipboard.writeText(url).then(() => {
-                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--heart-orange)";
-                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(244, 162, 97, 0.3)"; }, 3000);
-                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制地址栏"; });
+                
+                try {
+                    const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: '#ffffff', light: '#00000000' } });
+                    const qrImg = new Image();
+                    qrImg.src = qrDataUrl;
+                    
+                    qrImg.onload = () => {
+                        const canvas = document.getElementById('posterCanvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        ctx.fillStyle = '#0a0d12'; ctx.fillRect(0, 0, 1080, 1920);
+                        const grad = ctx.createRadialGradient(540, 960, 50, 540, 960, 800);
+                        grad.addColorStop(0, 'rgba(244, 162, 97, 0.25)'); grad.addColorStop(1, 'rgba(10, 13, 18, 0)');
+                        ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
+                        
+                        ctx.fillStyle = '#e8dfcf'; ctx.textAlign = 'center'; ctx.font = '70px "Noto Serif SC", serif'; ctx.fillText('双 心 摇 篮', 540, 380);
+                        
+                        ctx.fillStyle = 'rgba(232, 223, 207, 0.9)'; ctx.font = 'italic 46px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“在喧嚣之外，听见两颗心的共振”', 540, 560);
+                        
+                        // 绘制海报上的完美爱心装饰
+                        ctx.save(); ctx.translate(540, 680); ctx.scale(40, 40); ctx.beginPath();
+                        ctx.moveTo(0, 0.3);
+                        ctx.bezierCurveTo(-0.5, -0.3, -1, 0.45, 0, 1);
+                        ctx.bezierCurveTo(1, 0.45, 0.5, -0.3, 0, 0.3);
+                        ctx.fillStyle = 'rgba(244, 162, 97, 0.6)'; ctx.fill(); ctx.restore();
+                        
+                        ctx.drawImage(qrImg, 390, 800, 300, 300);
+                        ctx.fillStyle = 'rgba(244, 162, 97, 0.8)'; ctx.font = '36px "Noto Serif SC", serif'; ctx.fillText('长按识别二维码 · 进入专属摇篮', 540, 1300);
+                        ctx.fillStyle = 'rgba(232, 223, 207, 0.5)'; ctx.font = '28px "Noto Serif SC", serif'; ctx.fillText('请点击右上角「在默认浏览器中打开」以唤醒心跳', 540, 1380);
+
+                        document.getElementById('posterImg').src = canvas.toDataURL('image/png');
+                        modal.classList.add('show');
+                        inviteBtn.innerText = "生成专属摇篮海报";
+                    };
+                } catch (e) {
+                    inviteBtn.innerText = "海报生成失败，请重试"; console.error(e);
+                }
             });
+
+            closeBtn.addEventListener('click', () => modal.classList.remove('show'));
 
             const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
             document.addEventListener('pointerdown', unlockAudio, { once: true });
@@ -454,7 +591,33 @@
             }
         };
 
-        window.addEventListener('DOMContentLoaded', () => { CanvasEngine.init(); RTC.init(); initUI(); });
+        // 微信防拦截遮罩层检测
+        function checkWeChat() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.match(/MicroMessenger/i) == "micromessenger") {
+                const mask = document.createElement('div');
+                mask.style.cssText = `position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 13, 18, 0.98); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 15vh; color: #f4a261; font-family: 'Noto Serif SC', serif; text-align: center;`;
+                mask.innerHTML = `
+                    <div style="position:absolute; top: 20px; right: 30px; font-size: 3.5rem; animation: float 1s infinite alternate;">↗</div>
+                    <h2 style="font-weight: 400; letter-spacing: 0.1em; margin-bottom: 1.5rem;">请前往独立空间</h2>
+                    <p style="color: rgba(232, 223, 207, 0.8); font-size: 1.1rem; width: 85%; line-height: 2;">
+                        微信环境无法唤醒心跳引擎。<br><br>请点击右上角【···】<br>选择在 <b>Safari</b> 或 <b>默认浏览器</b> 中打开以建立连接。
+                    </p>
+                    <style>@keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(10px, -10px); } }</style>
+                `;
+                document.body.appendChild(mask);
+                return true;
+            }
+            return false;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { 
+            if (checkWeChat()) return; 
+            BgPulseEngine.init(); // 启动底层爱心粒子引擎
+            CanvasEngine.init(); 
+            RTC.init(); 
+            initUI(); 
+        });
         window.addEventListener('beforeunload', () => location.hash = '');
     </script>
 </body>
