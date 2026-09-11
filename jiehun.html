@@ -3,104 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>水镜探源 | The Mirror Phase</title>
-    <!-- 引入优雅的古典衬线字体 -->
+    <title>微火守候 | The Hearth Phase</title>
+    <!-- 引入高质感古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     
     <style>
         :root {
-            --bg-dark: #0d0f12;
-            --text-main: #f0f4f8;
-            --water-cyan: #38bdf8;
-            --water-deep: rgba(56, 189, 248, 0.15);
+            --bg-charcoal: #0a0908;
+            --ember-orange: #ff7a18;
+            --flame-gold: #ffb347;
+            --warm-white: #f7f2ea;
             --font-serif: 'Noto Serif SC', 'Playfair Display', serif;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body, html { width: 100%; height: 100%; background-color: var(--bg-dark); color: var(--text-main); font-family: var(--font-serif); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+        
+        body, html {
+            width: 100%; height: 100%; 
+            background-color: var(--bg-charcoal); 
+            color: var(--warm-white); 
+            font-family: var(--font-serif); 
+            overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+        }
+
         #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         
-        #waterCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        #hearthCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
-        .state-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 1.5s ease-in-out; padding: 1.5rem; text-align: center; }
+        .state-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none;
+            transition: opacity 1.5s ease-in-out; padding: 1.5rem; text-align: center;
+        }
         .state-layer.active { opacity: 1; pointer-events: auto; }
 
-        h1 { font-size: 2rem; font-weight: 400; letter-spacing: 0.2em; margin-bottom: 0.5rem; color: #ffffff; text-shadow: 0 0 20px rgba(56,189,248,0.3); }
-        .subtitle { font-size: 0.9rem; color: rgba(240, 244, 248, 0.6); letter-spacing: 0.1em; margin-bottom: 2rem; }
-        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(240, 244, 248, 0.9); max-width: 320px; }
+        h1 { font-size: 2.1rem; font-weight: 400; letter-spacing: 0.25em; margin-bottom: 0.5rem; color: var(--warm-white); text-shadow: 0 0 25px rgba(255,122,24,0.4); }
+        .subtitle { font-size: 0.95rem; color: rgba(247, 242, 234, 0.6); letter-spacing: 0.1em; margin-bottom: 2rem; }
+        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(247, 242, 234, 0.9); max-width: 320px; }
 
-        .invite-btn { margin-top: 1.5rem; padding: 0.7rem 1.5rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); color: var(--water-cyan); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(56,189,248,0.1); }
-        .invite-btn:active { background: rgba(56, 189, 248, 0.2); }
+        .invite-btn {
+            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(255, 122, 24, 0.08); border: 1px solid rgba(255, 122, 24, 0.35);
+            color: var(--flame-gold); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px;
+            letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,122,24,0.1);
+        }
+        .invite-btn:active { background: rgba(255, 122, 24, 0.2); }
 
         .slider-container { position: absolute; bottom: 12%; width: 220px; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; display: flex; align-items: center; }
-        .slider-thumb { width: 48px; height: 48px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.6); border-radius: 50%; position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(56, 189, 248, 0.4); transition: box-shadow 0.3s; }
-        .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--water-cyan); border-radius: 50%; box-shadow: 0 0 15px var(--water-cyan); }
-        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); pointer-events: none; letter-spacing: 0.1em; }
-
-        /* 核心防溢出、高可读性毛玻璃面板 */
-        .glass-panel { 
-            background: rgba(13, 15, 18, 0.85); /* 极深的底色，确保文字对比度 */
-            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
-            border: 1px solid rgba(56, 189, 248, 0.25); 
-            padding: 2.2rem 1.6rem; 
-            border-radius: 16px; 
-            width: 90vw; /* 动态宽度防溢出 */
-            max-width: 360px; 
-            margin-bottom: 2rem; 
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(56,189,248,0.05); 
+        .slider-thumb {
+            width: 48px; height: 48px; background: rgba(255, 122, 24, 0.15); border: 1px solid rgba(255, 122, 24, 0.6); border-radius: 50%;
+            position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(255, 122, 24, 0.4); transition: box-shadow 0.3s;
         }
-        .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(240, 244, 248, 0.95); }
+        .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--ember-orange); border-radius: 50%; box-shadow: 0 0 15px var(--ember-orange); }
+        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(247, 242, 234, 0.5); pointer-events: none; letter-spacing: 0.1em; }
+
+        /* 核心防溢出、高可读性温润毛玻璃面板 */
+        .glass-panel {
+            background: rgba(15, 10, 8, 0.85); /* 极深的暖棕黑底色，确保文字对比度极致清晰 */
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 122, 24, 0.2); padding: 2.2rem 1.6rem; border-radius: 16px; 
+            width: 90vw; /* 流体宽度，绝不溢出屏幕 */
+            max-width: 360px; margin-bottom: 2rem; 
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(255, 122, 24, 0.05);
+        }
+        .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(247, 242, 234, 0.95); }
         .glass-panel p:last-child { margin-bottom: 0; }
-        /* 重点高亮词 */
-        .highlight { color: var(--water-cyan); font-weight: 600; text-shadow: 0 0 12px rgba(56,189,248,0.4); }
-        .action-point { color: #81e6d9; font-weight: 400; } /* 动作指引采用柔和青色 */
+        .highlight { color: var(--flame-gold); font-weight: 600; text-shadow: 0 0 10px rgba(255,179,71,0.3); }
+        .action-point { color: var(--ember-orange); font-weight: 400; } 
 
         .hold-btn-wrapper { position: absolute; bottom: 8%; width: 90px; height: 90px; display: flex; justify-content: center; align-items: center; }
-        .hold-btn { width: 66px; height: 66px; border-radius: 50%; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.4); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; font-weight: 600; color: var(--water-cyan); z-index: 2; letter-spacing: 0.05em; }
+        .hold-btn { width: 66px; height: 66px; border-radius: 50%; background: rgba(255, 122, 24, 0.1); border: 1px solid rgba(255, 122, 24, 0.5); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; font-weight: 600; color: var(--flame-gold); z-index: 2; letter-spacing: 0.05em;}
         .hold-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; pointer-events: none; }
-        .hold-ring circle { fill: none; stroke: var(--water-cyan); stroke-width: 4; stroke-dasharray: 264; stroke-dashoffset: 264; transition: stroke-dashoffset 0.1s linear; } /* r=42 -> 2*pi*r = 264 */
+        .hold-ring circle { fill: none; stroke: var(--ember-orange); stroke-width: 4; stroke-dasharray: 264; stroke-dashoffset: 264; transition: stroke-dashoffset 0.1s linear; }
 
-        .water-seal { width: 90px; height: 90px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(13, 15, 18, 0) 70%); border-radius: 50%; box-shadow: 0 0 35px rgba(56, 189, 248, 0.5); }
-        .water-seal::after { content: ''; position: absolute; width: 30px; height: 30px; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 15px #fff; }
+        .hearth-seal { width: 90px; height: 90px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle, rgba(255, 122, 24, 0.3) 0%, rgba(10, 9, 8, 0) 70%); border-radius: 50%; box-shadow: 0 0 35px rgba(255, 122, 24, 0.4); }
+        .hearth-seal::before { content: ''; position: absolute; width: 60px; height: 60px; border: 1px solid rgba(247,242,234,0.4); border-radius: 50%; }
+        .hearth-seal::after { content: ''; position: absolute; width: 24px; height: 24px; background: var(--ember-orange); border-radius: 50%; box-shadow: 0 0 20px var(--flame-gold); }
 
-        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(56, 189, 248, 0.5); color: var(--water-cyan); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(56,189,248,0.1); }
-        .save-btn:active { background: rgba(56, 189, 248, 0.25); }
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(255, 122, 24, 0.5); color: var(--flame-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,122,24,0.1); }
+        .save-btn:active { background: rgba(255, 122, 24, 0.25); }
 
-        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(56,189,248,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(247,242,234,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
         #renderCanvas { display: none; }
     </style>
 </head>
 <body>
     <div id="status-bar">环境初始化中...</div>
-    <canvas id="waterCanvas"></canvas>
+    <canvas id="hearthCanvas"></canvas>
     <canvas id="renderCanvas" width="1080" height="1920"></canvas>
 
     <div id="app">
-        <!-- 状态一：等待汇流 -->
+        <!-- 状态一：余烬寻温 -->
         <div id="state1" class="state-layer active">
-            <h1 ondblclick="DEV_MODE.simulateConnection()">水镜探源</h1>
-            <p class="subtitle">在喧嚣中静止，让真实浮出水面</p>
-            <p class="instruction">请将两台手机平放于桌面，长边紧贴</p>
+            <h1 ondblclick="DEV_MODE.simulateConnection()">微火守候</h1>
+            <p class="subtitle">在柴米油盐的疲惫里，让心重新依偎</p>
+            <p class="instruction">请将两台手机平放于桌面，长边紧密贴合</p>
             
-            <button class="invite-btn" id="inviteBtn">复制连接发送给伴侣</button>
+            <button class="invite-btn" id="inviteBtn">复制房间链接发送给伴侣</button>
 
             <div class="slider-container" id="alignSliderBox">
-                <div class="slider-text" id="sliderText">滑动向接缝靠拢</div>
+                <div class="slider-text" id="sliderText">滑动向火光靠拢</div>
                 <div class="slider-thumb" id="sliderThumb"></div>
             </div>
         </div>
 
-        <!-- 状态二：水镜成形 -->
+        <!-- 状态二：微火重燃 (Canvas 渲染) -->
         <div id="state2" class="state-layer"></div>
 
-        <!-- 状态三：破冰引导 -->
+        <!-- 状态三：温存破冰与隐秘感恩 -->
         <div id="state3" class="state-layer">
             <div class="glass-panel">
-                <p><span class="action-point">双手平放于桌面两侧，不靠向对方，不低头看手机。</span>抬头平视对方双眼，保持呼吸均匀。</p>
-                <p>轮流开口，向对方坦白一件今天出门前你曾为之感到紧绷、刻意掩饰或内心不安的微小瑕疵。</p>
-                <p>听的一方全程不打断、不讲道理、不进行评判，听完后专注看着对方眼睛回应：<br><br>
-                <span class="highlight">“我看见了，这个真实的你同样值得被珍视。”</span></p>
+                <p><span class="action-point">各自靠在对方怀里，或者一人为另一人揉捏紧绷的后颈三分钟。</span></p>
+                <p>闭上眼睛，说出今天对方为你做的一件细小到近乎隐形的事（比如：替你收了衣服、默默倒了温水、或是清理了地漏）。</p>
+                <p>对他说一声：<br><br>
+                <span class="highlight">“谢谢你为这个家耗费的力气。”</span></p>
             </div>
             <div class="hold-btn-wrapper">
                 <svg class="hold-ring" viewBox="0 0 90 90"><circle cx="45" cy="45" r="42"></circle></svg>
@@ -108,16 +124,16 @@
             </div>
         </div>
 
-        <!-- 状态四：澄澈凭证 -->
+        <!-- 状态四：微火同印 -->
         <div id="state4" class="state-layer">
-            <div class="water-seal"></div>
+            <div class="hearth-seal"></div>
             <div class="glass-panel" style="padding: 1.8rem 1.5rem;">
-                <p style="font-size: 0.85rem; text-align: center; color: rgba(56,189,248,0.7); margin-bottom: 1rem;">请一起读出以下内容：</p>
+                <p style="font-size: 0.85rem; text-align: center; color: rgba(247,242,234,0.7); margin-bottom: 1rem;">请一起读出以下内容：</p>
                 <p style="text-align: center; font-size: 0.95rem; line-height: 1.85;">
-                    允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。
+                    众水不能熄灭爱，能熄灭爱的往往是经年累月的麻木与习以为常。把隐秘的家务劳动从理所应当的牢笼中释放出来，用肉身的触碰唤醒对同路人的感激。
                 </p>
             </div>
-            <button class="save-btn" id="saveBtn">封存清澈时刻</button>
+            <button class="save-btn" id="saveBtn">灯火为彼此而留</button>
         </div>
     </div>
 
@@ -129,13 +145,14 @@
                 this.state = s;
                 Object.values(this.els).forEach(el => { if (el && el.classList) el.classList.remove('active'); });
                 if (this.els[`s${s}`]) this.els[`s${s}`].classList.add('active');
+                
                 if (s === 1) {
                     CanvasEngine.stop(); AudioEngine.stopAll();
                 } else if (s === 2) {
-                    CanvasEngine.start(); AudioEngine.playWaterFlow(); SensorEngine.startMonitoring();
+                    CanvasEngine.start(); AudioEngine.playHearth(); SensorEngine.startMonitoring();
                     setTimeout(() => {
                         if (this.state === 2 && !this.disturbed) {
-                            this.setState(3); AudioEngine.fadeWaterFlow();
+                            this.setState(3); CanvasEngine.fadeToCalm(); AudioEngine.fadeToCalm();
                         }
                     }, 10000);
                 }
@@ -143,81 +160,122 @@
             triggerDisturb() {
                 if (this.state === 1 || this.state === 4 || this.disturbed) return;
                 this.disturbed = true; RTC.send({ type: 'DISTURBED' }); this.setState(1);
-                this.els.status.innerText = "水面惊动，水镜破碎";
-                AudioEngine.playShatter();
-                if ('vibrate' in navigator) { try{ navigator.vibrate([60, 40, 60]); }catch(e){} }
+                this.els.status.innerText = "炉火惊散，重归冰冷";
+                AudioEngine.playSizzle(); // 浇灭的滋滋声
+                if ('vibrate' in navigator) { try{ navigator.vibrate([60, 40, 100]); }catch(e){} }
                 setTimeout(() => { this.disturbed = false; }, 2000);
             }
         };
 
+        /**
+         * 极致真实的程序化壁炉声学引擎 (无爆音)
+         */
         const AudioEngine = {
-            ctx: null, waterNode: null, initialized: false,
+            ctx: null, rumbleNode: null, crackleNode: null, initialized: false, isCalm: false,
             forceUnlock() {
                 if(this.initialized) return;
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
             },
-            createPinkNoise() {
-                const bufferSize = this.ctx.sampleRate * 2; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const output = buffer.getChannelData(0);
-                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
-                for (let i = 0; i < bufferSize; i++) {
-                    const white = Math.random() * 2 - 1;
-                    b0 = 0.99886 * b0 + white * 0.0555179; b1 = 0.99332 * b1 + white * 0.0750759; b2 = 0.96900 * b2 + white * 0.1538520;
-                    b3 = 0.86650 * b3 + white * 0.3104856; b4 = 0.55000 * b4 + white * 0.5329522; b5 = -0.7616 * b5 - white * 0.0168980;
-                    output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-                    output[i] *= 0.11; b6 = white * 0.115926;
+            // 创建底层燃烧的沉闷气流声
+            createRumbleBuffer() {
+                const len = this.ctx.sampleRate * 2; const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+                const data = buf.getChannelData(0);
+                for(let i=0; i<len; i++) data[i] = (Math.random()*2-1) * 0.5;
+                return buf;
+            },
+            // 创建真实的木炭噼啪爆裂声 (稀疏的高频冲击包络)
+            createCrackleBuffer() {
+                const len = this.ctx.sampleRate * 4; const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+                const data = buf.getChannelData(0);
+                for(let i=0; i<len; i++) {
+                    if(Math.random() < 0.0003) { // 千分之三的概率触发爆点
+                        let decay = 1;
+                        for(let j=0; j<800 && (i+j)<len; j++) {
+                            data[i+j] = (Math.random()*2-1) * decay;
+                            decay *= 0.95; // 极速衰减，形成干脆的“啪”声
+                        }
+                        i += 800;
+                    }
                 }
-                return buffer;
+                return buf;
             },
-            playWaterFlow() {
+            playHearth() {
                 this.forceUnlock();
-                if (this.waterNode) return;
-                const noise = this.ctx.createBufferSource(); noise.buffer = this.createPinkNoise(); noise.loop = true;
-                const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 350; // 极其柔和的水流声
-                const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.01, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.6, this.ctx.currentTime + 2);
-                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
-                noise.start(); this.waterNode = { source: noise, gain: gain };
+                if (this.rumbleNode) return;
+                this.isCalm = false;
+
+                // 低频气流燃烧
+                const rumbleSrc = this.ctx.createBufferSource(); rumbleSrc.buffer = this.createRumbleBuffer(); rumbleSrc.loop = true;
+                const lowpass = this.ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 150;
+                const rumbleGain = this.ctx.createGain(); rumbleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); rumbleGain.gain.exponentialRampToValueAtTime(0.8, this.ctx.currentTime + 2);
+                rumbleSrc.connect(lowpass); lowpass.connect(rumbleGain); rumbleGain.connect(this.ctx.destination);
+                rumbleSrc.start(); this.rumbleNode = { source: rumbleSrc, gain: rumbleGain };
+
+                // 高频木炭爆裂
+                const crackleSrc = this.ctx.createBufferSource(); crackleSrc.buffer = this.createCrackleBuffer(); crackleSrc.loop = true;
+                const highpass = this.ctx.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 2000;
+                const crackleGain = this.ctx.createGain(); crackleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); crackleGain.gain.exponentialRampToValueAtTime(0.6, this.ctx.currentTime + 1);
+                crackleSrc.connect(highpass); highpass.connect(crackleGain); crackleGain.connect(this.ctx.destination);
+                crackleSrc.start(); this.crackleNode = { source: crackleSrc, gain: crackleGain };
             },
-            fadeWaterFlow() {
-                if (this.waterNode && this.ctx) this.waterNode.gain.gain.exponentialRampToValueAtTime(0.05, this.ctx.currentTime + 3);
+            fadeToCalm() {
+                this.isCalm = true;
+                // 进入温存期，爆裂声减弱，底火保留
+                if (this.crackleNode && this.ctx) this.crackleNode.gain.gain.exponentialRampToValueAtTime(0.1, this.ctx.currentTime + 3);
+                if (this.rumbleNode && this.ctx) this.rumbleNode.gain.gain.exponentialRampToValueAtTime(0.4, this.ctx.currentTime + 3);
             },
-            playDrop() {
+            playSizzle() {
                 this.forceUnlock();
-                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.6, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-                osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); osc.stop(this.ctx.currentTime + 0.15);
-            },
-            playShatter() {
-                this.forceUnlock();
-                const bufferSize = this.ctx.sampleRate * 0.4; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const output = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.05));
-                const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
-                const filter = this.ctx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1500;
-                const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.8, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
-                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); noise.start();
+                this.stopAll();
+                // 模拟冷水浇灭的滋滋声
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                osc.type = 'square'; osc.frequency.setValueAtTime(1500, this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
+                osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); osc.stop(this.ctx.currentTime + 0.6);
             },
             stopAll() {
-                if (this.waterNode && this.ctx) {
-                    this.waterNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
-                    this.waterNode.gain.gain.setValueAtTime(this.waterNode.gain.gain.value, this.ctx.currentTime);
-                    this.waterNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-                    setTimeout(() => { if(this.waterNode) this.waterNode.source.stop(); this.waterNode = null; }, 500);
+                if (this.rumbleNode && this.ctx) {
+                    this.rumbleNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+                    this.rumbleNode.gain.gain.setValueAtTime(this.rumbleNode.gain.gain.value, this.ctx.currentTime);
+                    this.rumbleNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    setTimeout(() => { if(this.rumbleNode) this.rumbleNode.source.stop(); this.rumbleNode = null; }, 500);
+                }
+                if (this.crackleNode && this.ctx) {
+                    this.crackleNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+                    this.crackleNode.gain.gain.setValueAtTime(this.crackleNode.gain.gain.value, this.ctx.currentTime);
+                    this.crackleNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    setTimeout(() => { if(this.crackleNode) this.crackleNode.source.stop(); this.crackleNode = null; }, 500);
                 }
             }
         };
 
+        /**
+         * Canvas 动态余烬引擎
+         */
         const CanvasEngine = {
-            canvas: document.getElementById('waterCanvas'), ctx: null, reqId: null, running: false,
+            canvas: document.getElementById('hearthCanvas'), ctx: null, reqId: null, particles: [], running: false, isCalm: false,
             init() {
                 this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
+                for(let i=0; i<80; i++) this.particles.push(this.createEmber(true));
             },
             resize() {
                 const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
             },
-            start() { if (!this.ctx) this.init(); this.running = true; this.draw(); },
+            createEmber(isInit=false) {
+                const h = window.innerHeight;
+                return {
+                    id: Math.random() * 100,
+                    x: Math.random() * window.innerWidth,
+                    y: isInit ? Math.random() * h : h + 10,
+                    vy: Math.random() * 2 + 1,
+                    wander: Math.random() * 1.5,
+                    r: Math.random() * 3 + 1,
+                    life: Math.random() * 0.8 + 0.2
+                };
+            },
+            fadeToCalm() { this.isCalm = true; },
+            start() { if (!this.ctx) this.init(); this.running = true; this.isCalm = false; this.draw(); },
             stop() { this.running = false; if (this.reqId) cancelAnimationFrame(this.reqId); if (this.ctx) this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight); },
             draw() {
                 if (!this.running) return;
@@ -225,38 +283,37 @@
                 this.ctx.clearRect(0, 0, w, h);
                 const t = (Date.now() - App.epoch) / 1000;
                 
-                // 优雅的多重正弦波叠加
-                const waves = [
-                    { A: 25, w: 0.015, k: 1.5, p: 0 },
-                    { A: 15, w: 0.025, k: 2.5, p: 1 },
-                    { A: 8, w: 0.045, k: 3.5, p: 2 }
-                ];
+                const jointX = App.isHost ? w : 0;
                 
-                this.ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-                this.ctx.beginPath();
-                
-                if (App.isHost) {
-                    this.ctx.moveTo(w, 0);
-                    for (let y = 0; y <= h; y += 4) {
-                        let x = w - 100; // 水波向内延伸深度
-                        waves.forEach(wave => { x -= wave.A * Math.sin(wave.w * y + wave.k * t + wave.p); });
-                        this.ctx.lineTo(x, y);
+                // 绘制接缝底部的暖光红晕
+                const grad = this.ctx.createRadialGradient(jointX, h, h*0.1, jointX, h, h*0.8);
+                grad.addColorStop(0, this.isCalm ? 'rgba(255, 122, 24, 0.15)' : 'rgba(255, 122, 24, 0.3)');
+                grad.addColorStop(1, 'rgba(10, 9, 8, 0)');
+                this.ctx.fillStyle = grad;
+                this.ctx.fillRect(0, 0, w, h);
+
+                // 绘制上升的余烬火星
+                this.ctx.globalCompositeOperation = 'lighter';
+                this.particles.forEach(p => {
+                    // 进入状态三后，火星飘散变慢，主要聚集在底部
+                    let currentVy = this.isCalm ? p.vy * 0.3 : p.vy;
+                    p.y -= currentVy;
+                    p.x += Math.sin(t * 2 + p.id) * p.wander;
+                    p.life -= this.isCalm ? 0.002 : 0.005;
+
+                    if(p.life > 0) {
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+                        this.ctx.fillStyle = `rgba(255, 179, 71, ${p.life})`;
+                        this.ctx.fill();
+                    } else {
+                        Object.assign(p, this.createEmber());
+                        // 强制生成在接缝附近
+                        if(App.isHost) p.x = w - Math.random()*80;
+                        else p.x = Math.random()*80;
                     }
-                    this.ctx.lineTo(w, h);
-                } else {
-                    this.ctx.moveTo(0, 0);
-                    for (let y = 0; y <= h; y += 4) {
-                        let x = 100;
-                        waves.forEach(wave => { x += wave.A * Math.sin(wave.w * y + wave.k * t + wave.p); });
-                        this.ctx.lineTo(x, y);
-                    }
-                    this.ctx.lineTo(0, h);
-                }
-                this.ctx.fill();
-                
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-                this.ctx.lineWidth = 1.5;
-                this.ctx.stroke();
+                });
+                this.ctx.globalCompositeOperation = 'source-over';
 
                 this.reqId = requestAnimationFrame(() => this.draw());
             }
@@ -279,7 +336,10 @@
             handleOrientation: (e) => {
                 if (App.state !== 2 && App.state !== 3) return;
                 if (SensorEngine.baseBeta === null) { SensorEngine.baseBeta = e.beta; SensorEngine.baseGamma = e.gamma; return; }
-                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
+                
+                // EMA 滤波抗手抖
+                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); 
+                const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
                 if (dBeta > 12 || dGamma > 12) App.triggerDisturb();
             },
             handleVisibility: () => {
@@ -293,11 +353,11 @@
             init() {
                 let hash = location.hash.replace('#room=', '');
                 if (!hash) { hash = Math.random().toString(36).substring(2, 8); location.hash = '#room=' + hash; }
-                this.roomId = hash; const hostId = `mirror-p-${hash}-h`; const guestId = `mirror-p-${hash}-g`;
+                this.roomId = hash; const hostId = `hearth-p-${hash}-h`; const guestId = `hearth-p-${hash}-g`;
 
                 this.peer = new Peer(hostId);
                 this.peer.on('open', () => {
-                    App.isHost = true; App.els.status.innerText = `当前水域: ${hash} | 等待伴侣汇流...`;
+                    App.isHost = true; App.els.status.innerText = `当前房间: ${hash} | 等待伴侣加入...`;
                     this.peer.on('connection', (c) => { this.conn = c; this.setupConnection(); });
                 });
                 this.peer.on('error', (err) => {
@@ -311,7 +371,7 @@
             },
             setupConnection() {
                 this.conn.on('open', () => {
-                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方光点";
+                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方火光";
                     if (App.isHost) { App.epoch = Date.now(); this.send({ type: 'SYNC', epoch: App.epoch }); }
                 });
                 this.conn.on('data', (data) => {
@@ -324,23 +384,23 @@
             },
             send(data) { if (this.connected && this.conn) this.conn.send(data); },
             setLocalSliding(state) { this.localSliding = state; this.send({ type: 'SLIDING', state: state }); this.checkSyncSlide(); },
-            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "水镜融合中..."; AudioEngine.playDrop(); setTimeout(() => App.setState(2), 200); } }
+            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "微火重燃中..."; setTimeout(() => App.setState(2), 200); } }
         };
 
         function initUI() {
             const inviteBtn = document.getElementById('inviteBtn');
             inviteBtn.addEventListener('click', () => {
                 if (window.location.protocol === 'file:') {
-                    alert("⚠️ 协议错误提醒 ⚠️\n\n请不要直接双击本地 HTML 文件 (file:///)。\n请使用 VS Code 'Live Server' 插件打开，这样才能跨设备联机！");
-                    return;
+                    alert("⚠️ 协议提醒 ⚠️\n\n请不要直接双击本地 HTML 文件 (file:///)。\n请使用 VS Code 'Live Server' 插件打开，这样才能跨设备联机！"); return;
                 }
                 const url = window.location.href;
                 navigator.clipboard.writeText(url).then(() => {
-                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--water-cyan)";
-                    setTimeout(() => { inviteBtn.innerText = "复制连接发送给伴侣"; inviteBtn.style.borderColor = "rgba(56, 189, 248, 0.3)"; }, 3000);
-                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制顶部地址"; });
+                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--ember-orange)";
+                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(255, 122, 24, 0.35)"; }, 3000);
+                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制地址栏"; });
             });
 
+            // 完美的全局触摸解锁音频防拦截机制
             const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
             document.addEventListener('pointerdown', unlockAudio, { once: true });
 
@@ -367,7 +427,7 @@
                     progress = Math.min(100, progress + 0.66); ringCircle.style.strokeDashoffset = 264 - (264 * progress / 100);
                     if (progress >= 100) {
                         clearInterval(holdTimer);
-                        if ('vibrate' in navigator) { try{navigator.vibrate(60);}catch(e){} }
+                        if ('vibrate' in navigator) { try{navigator.vibrate([60, 40, 90]);}catch(e){} }
                         RTC.send({ type: 'SYNC_STATE_4' }); App.setState(4);
                     }
                 }, 20);
@@ -380,19 +440,19 @@
 
         function generateCertificate() {
             const canvas = document.getElementById('renderCanvas'); const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#0d0f12'; ctx.fillRect(0, 0, 1080, 1920);
+            ctx.fillStyle = '#0a0908'; ctx.fillRect(0, 0, 1080, 1920);
             
             const grad = ctx.createRadialGradient(540, 500, 50, 540, 500, 450);
-            grad.addColorStop(0, 'rgba(56, 189, 248, 0.2)'); grad.addColorStop(1, 'rgba(13, 15, 18, 0)');
+            grad.addColorStop(0, 'rgba(255, 122, 24, 0.2)'); grad.addColorStop(1, 'rgba(10, 9, 8, 0)');
             ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
             
-            ctx.beginPath(); ctx.arc(540, 500, 80, 0, Math.PI * 2); ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3; ctx.stroke();
-            ctx.beginPath(); ctx.arc(540, 500, 30, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+            ctx.beginPath(); ctx.arc(540, 500, 80, 0, Math.PI * 2); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.beginPath(); ctx.arc(540, 500, 30, 0, Math.PI * 2); ctx.fillStyle = '#ff7a18'; ctx.fill();
             
-            ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '55px Noto Serif SC, serif'; ctx.fillText('水 镜 探 源', 540, 780);
+            ctx.fillStyle = '#f7f2ea'; ctx.textAlign = 'center'; ctx.font = '55px Noto Serif SC, serif'; ctx.fillText('微 火 守 候', 540, 780);
             
-            ctx.font = '36px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(240, 244, 248, 0.9)';
-            const text = "允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。";
+            ctx.font = '36px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(247, 242, 234, 0.9)';
+            const text = "众水不能熄灭爱，能熄灭爱的往往是经年累月的麻木与习以为常。把隐秘的家务劳动从理所应当的牢笼中释放出来，用肉身的触碰唤醒对同路人的感激。";
             let line = ''; let y = 1000;
             for (let i = 0; i < text.length; i++) {
                 line += text[i];
@@ -400,9 +460,9 @@
             }
             if(line) ctx.fillText(line, 540, y);
             
-            ctx.font = '32px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(56, 189, 248, 0.8)'; const date = new Date(); ctx.fillText(`这一刻，我们在真实中相见 · ${date.getFullYear()}.${date.getMonth()+1}.${date.getDate()}`, 540, 1750);
+            ctx.font = '32px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(255, 179, 71, 0.8)'; const date = new Date(); ctx.fillText(`灯火为彼此而留 · ${date.getFullYear()}.${date.getMonth()+1}.${date.getDate()}`, 540, 1750);
             
-            const link = document.createElement('a'); link.download = 'mirror-phase-seal.png'; link.href = canvas.toDataURL('image/png'); link.click();
+            const link = document.createElement('a'); link.download = 'hearth-phase-seal.png'; link.href = canvas.toDataURL('image/png'); link.click();
         }
 
         const DEV_MODE = {
