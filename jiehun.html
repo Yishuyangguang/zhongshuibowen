@@ -6,9 +6,7 @@
     <title>微火守候 | The Hearth Phase</title>
     <!-- 引入高质感古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-    <!-- WebRTC 通信库 -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <!-- QR Code 生成库 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     
     <style>
@@ -32,6 +30,9 @@
 
         #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; }
         
+        /* 动态背景：上升的微火余烬 */
+        #bgCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        /* 交互前景：边缘的接缝热量光晕 */
         #hearthCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
         .state-layer {
@@ -62,11 +63,10 @@
 
         /* 核心防溢出、高可读性温润毛玻璃面板 */
         .glass-panel {
-            background: rgba(15, 10, 8, 0.85); /* 极深的暖棕黑底色，确保文字对比度极致清晰 */
+            background: rgba(15, 10, 8, 0.85); 
             backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
             border: 1px solid rgba(255, 122, 24, 0.2); padding: 2.2rem 1.6rem; border-radius: 16px; 
-            width: 90vw; /* 流体宽度，绝不溢出屏幕 */
-            max-width: 360px; margin-bottom: 2rem; 
+            width: 90vw; max-width: 360px; margin-bottom: 2rem; 
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(255, 122, 24, 0.05);
         }
         .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(247, 242, 234, 0.95); }
@@ -86,7 +86,7 @@
         .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(255, 122, 24, 0.5); color: var(--flame-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,122,24,0.1); }
         .save-btn:active { background: rgba(255, 122, 24, 0.25); }
 
-        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(247,242,234,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(247,242,234,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
         
         #renderCanvas, #posterCanvas { display: none; }
 
@@ -106,6 +106,10 @@
 </head>
 <body>
     <div id="status-bar">环境初始化中...</div>
+    
+    <!-- 新增：底层极简火星粒子环境 -->
+    <canvas id="bgCanvas"></canvas>
+    <!-- 前景：边缘接缝热辐射光晕 -->
     <canvas id="hearthCanvas"></canvas>
     
     <canvas id="renderCanvas" width="1080" height="1920"></canvas>
@@ -135,7 +139,7 @@
             </div>
         </div>
 
-        <!-- 状态二：微火重燃 (Canvas 渲染) -->
+        <!-- 状态二：微火重燃 -->
         <div id="state2" class="state-layer"></div>
 
         <!-- 状态三：温存破冰与隐秘感恩 -->
@@ -180,7 +184,7 @@
                     CanvasEngine.start(); AudioEngine.playHearth(); SensorEngine.startMonitoring();
                     setTimeout(() => {
                         if (this.state === 2 && !this.disturbed) {
-                            this.setState(3); CanvasEngine.fadeToCalm(); AudioEngine.fadeToCalm();
+                            this.setState(3); AudioEngine.fadeToCalm(); BgHearthEngine.fadeToCalm();
                         }
                     }, 10000);
                 }
@@ -189,15 +193,13 @@
                 if (this.state === 1 || this.state === 4 || this.disturbed) return;
                 this.disturbed = true; RTC.send({ type: 'DISTURBED' }); this.setState(1);
                 this.els.status.innerText = "炉火惊散，重归冰冷";
-                AudioEngine.playSizzle(); // 浇灭的滋滋声
+                BgHearthEngine.isCalm = false;
+                AudioEngine.playSizzle(); 
                 if ('vibrate' in navigator) { try{ navigator.vibrate([60, 40, 100]); }catch(e){} }
                 setTimeout(() => { this.disturbed = false; }, 2000);
             }
         };
 
-        /**
-         * 极致真实的程序化壁炉声学引擎 (无爆音)
-         */
         const AudioEngine = {
             ctx: null, rumbleNode: null, crackleNode: null, initialized: false, isCalm: false,
             forceUnlock() {
@@ -205,23 +207,21 @@
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
             },
-            // 创建底层燃烧的沉闷气流声
             createRumbleBuffer() {
                 const len = this.ctx.sampleRate * 2; const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
                 const data = buf.getChannelData(0);
                 for(let i=0; i<len; i++) data[i] = (Math.random()*2-1) * 0.5;
                 return buf;
             },
-            // 创建真实的木炭噼啪爆裂声 (稀疏的高频冲击包络)
             createCrackleBuffer() {
                 const len = this.ctx.sampleRate * 4; const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
                 const data = buf.getChannelData(0);
                 for(let i=0; i<len; i++) {
-                    if(Math.random() < 0.0003) { // 千分之三的概率触发爆点
+                    if(Math.random() < 0.0003) { 
                         let decay = 1;
                         for(let j=0; j<800 && (i+j)<len; j++) {
                             data[i+j] = (Math.random()*2-1) * decay;
-                            decay *= 0.95; // 极速衰减，形成干脆的“啪”声
+                            decay *= 0.95; 
                         }
                         i += 800;
                     }
@@ -233,14 +233,12 @@
                 if (this.rumbleNode) return;
                 this.isCalm = false;
 
-                // 低频气流燃烧
                 const rumbleSrc = this.ctx.createBufferSource(); rumbleSrc.buffer = this.createRumbleBuffer(); rumbleSrc.loop = true;
                 const lowpass = this.ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 150;
                 const rumbleGain = this.ctx.createGain(); rumbleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); rumbleGain.gain.exponentialRampToValueAtTime(0.8, this.ctx.currentTime + 2);
                 rumbleSrc.connect(lowpass); lowpass.connect(rumbleGain); rumbleGain.connect(this.ctx.destination);
                 rumbleSrc.start(); this.rumbleNode = { source: rumbleSrc, gain: rumbleGain };
 
-                // 高频木炭爆裂
                 const crackleSrc = this.ctx.createBufferSource(); crackleSrc.buffer = this.createCrackleBuffer(); crackleSrc.loop = true;
                 const highpass = this.ctx.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 2000;
                 const crackleGain = this.ctx.createGain(); crackleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); crackleGain.gain.exponentialRampToValueAtTime(0.6, this.ctx.currentTime + 1);
@@ -249,14 +247,12 @@
             },
             fadeToCalm() {
                 this.isCalm = true;
-                // 进入温存期，爆裂声减弱，底火保留
                 if (this.crackleNode && this.ctx) this.crackleNode.gain.gain.exponentialRampToValueAtTime(0.1, this.ctx.currentTime + 3);
                 if (this.rumbleNode && this.ctx) this.rumbleNode.gain.gain.exponentialRampToValueAtTime(0.4, this.ctx.currentTime + 3);
             },
             playSizzle() {
                 this.forceUnlock();
                 this.stopAll();
-                // 模拟冷水浇灭的滋滋声
                 const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
                 osc.type = 'square'; osc.frequency.setValueAtTime(1500, this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.4);
                 gain.gain.setValueAtTime(0.5, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
@@ -279,31 +275,90 @@
         };
 
         /**
-         * Canvas 动态余烬引擎
+         * 极简高级：底层环境火星粒子引擎
+         * 仅少量柔和粒子缓慢升腾，绝不干扰文字阅读，充满静谧感
          */
-        const CanvasEngine = {
-            canvas: document.getElementById('hearthCanvas'), ctx: null, reqId: null, particles: [], running: false, isCalm: false,
+        const BgHearthEngine = {
+            canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, particles: [], isCalm: false,
             init() {
                 this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
-                for(let i=0; i<80; i++) this.particles.push(this.createEmber(true));
+                for(let i=0; i<40; i++) this.particles.push(this.createParticle(true));
+                this.start();
             },
             resize() {
                 const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
             },
-            createEmber(isInit=false) {
-                const h = window.innerHeight;
+            createParticle(init = false) {
+                const h = window.innerHeight; const w = window.innerWidth;
                 return {
-                    id: Math.random() * 100,
-                    x: Math.random() * window.innerWidth,
-                    y: isInit ? Math.random() * h : h + 10,
-                    vy: Math.random() * 2 + 1,
-                    wander: Math.random() * 1.5,
-                    r: Math.random() * 3 + 1,
-                    life: Math.random() * 0.8 + 0.2
+                    x: Math.random() * w,
+                    y: init ? Math.random() * h : h + 10,
+                    size: Math.random() * 2 + 0.8,
+                    speedY: Math.random() * 0.8 + 0.3,
+                    speedX: Math.random() * 0.4 - 0.2,
+                    maxOpacity: Math.random() * 0.35 + 0.1, // 极低的透明度，柔和内敛
+                    opacity: 0,
+                    phase: Math.random() * Math.PI * 2
                 };
             },
             fadeToCalm() { this.isCalm = true; },
-            start() { if (!this.ctx) this.init(); this.running = true; this.isCalm = false; this.draw(); },
+            start() { if (!this.ctx) this.init(); this.draw(); },
+            draw() {
+                const w = window.innerWidth; const h = window.innerHeight;
+                this.ctx.fillStyle = '#0a0908';
+                this.ctx.fillRect(0, 0, w, h);
+
+                // 底部极其微弱的环境漫反射暖光
+                const grad = this.ctx.createRadialGradient(w/2, h, 0, w/2, h, h*0.6);
+                grad.addColorStop(0, 'rgba(255, 122, 24, 0.08)');
+                grad.addColorStop(1, 'rgba(10, 9, 8, 0)');
+                this.ctx.fillStyle = grad;
+                this.ctx.fillRect(0, 0, w, h);
+
+                this.ctx.globalCompositeOperation = 'lighter';
+                
+                this.particles.forEach(p => {
+                    let currentVy = this.isCalm ? p.speedY * 0.4 : p.speedY; // 进入温存期粒子极慢
+                    p.y -= currentVy;
+                    p.x += Math.sin(p.y * 0.01 + p.phase) * 0.6 + p.speedX;
+                    
+                    // 粒子淡入淡出逻辑：底部淡入，中上部淡出
+                    if (p.y > h * 0.8) {
+                        p.opacity = p.maxOpacity * (1 - (p.y - h * 0.8) / (h * 0.2));
+                    } else if (p.y < h * 0.4) {
+                        p.opacity = p.maxOpacity * (p.y / (h * 0.4));
+                    } else {
+                        p.opacity = p.maxOpacity;
+                    }
+
+                    if (p.opacity > 0) {
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        this.ctx.fillStyle = `rgba(255, 122, 24, ${p.opacity})`;
+                        this.ctx.fill();
+                    }
+
+                    if (p.y < 0) Object.assign(p, this.createParticle());
+                });
+                
+                this.ctx.globalCompositeOperation = 'source-over';
+                this.reqId = requestAnimationFrame(() => this.draw());
+            }
+        };
+
+        /**
+         * 修复：前景边缘的接缝热辐射引擎
+         * (彻底移除了错误的水波浪，改为伴随呼吸的心跳热能发光边缘)
+         */
+        const CanvasEngine = {
+            canvas: document.getElementById('hearthCanvas'), ctx: null, reqId: null, running: false,
+            init() {
+                this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
+            },
+            resize() {
+                const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
+            },
+            start() { if (!this.ctx) this.init(); this.running = true; this.draw(); },
             stop() { this.running = false; if (this.reqId) cancelAnimationFrame(this.reqId); if (this.ctx) this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight); },
             draw() {
                 if (!this.running) return;
@@ -311,37 +366,19 @@
                 this.ctx.clearRect(0, 0, w, h);
                 const t = (Date.now() - App.epoch) / 1000;
                 
+                // 绘制边缘的微火红晕热辐射
                 const jointX = App.isHost ? w : 0;
+                const glowWidth = w * 0.35;
                 
-                // 绘制接缝底部的暖光红晕
-                const grad = this.ctx.createRadialGradient(jointX, h, h*0.1, jointX, h, h*0.8);
-                grad.addColorStop(0, this.isCalm ? 'rgba(255, 122, 24, 0.15)' : 'rgba(255, 122, 24, 0.3)');
-                grad.addColorStop(1, 'rgba(10, 9, 8, 0)');
+                const grad = this.ctx.createLinearGradient(App.isHost ? w - glowWidth : glowWidth, 0, jointX, 0);
+                grad.addColorStop(0, 'rgba(255, 122, 24, 0)');
+                
+                // 基于时间戳的平滑呼吸感
+                const alpha = 0.15 + Math.sin(t * 1.5) * 0.08;
+                grad.addColorStop(1, `rgba(255, 122, 24, ${alpha})`);
+                
                 this.ctx.fillStyle = grad;
-                this.ctx.fillRect(0, 0, w, h);
-
-                // 绘制上升的余烬火星
-                this.ctx.globalCompositeOperation = 'lighter';
-                this.particles.forEach(p => {
-                    // 进入状态三后，火星飘散变慢，主要聚集在底部
-                    let currentVy = this.isCalm ? p.vy * 0.3 : p.vy;
-                    p.y -= currentVy;
-                    p.x += Math.sin(t * 2 + p.id) * p.wander;
-                    p.life -= this.isCalm ? 0.002 : 0.005;
-
-                    if(p.life > 0) {
-                        this.ctx.beginPath();
-                        this.ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-                        this.ctx.fillStyle = `rgba(255, 179, 71, ${p.life})`;
-                        this.ctx.fill();
-                    } else {
-                        Object.assign(p, this.createEmber());
-                        // 强制生成在接缝附近
-                        if(App.isHost) p.x = w - Math.random()*80;
-                        else p.x = Math.random()*80;
-                    }
-                });
-                this.ctx.globalCompositeOperation = 'source-over';
+                this.ctx.fillRect(App.isHost ? w - glowWidth : 0, 0, glowWidth, h);
 
                 this.reqId = requestAnimationFrame(() => this.draw());
             }
@@ -364,10 +401,7 @@
             handleOrientation: (e) => {
                 if (App.state !== 2 && App.state !== 3) return;
                 if (SensorEngine.baseBeta === null) { SensorEngine.baseBeta = e.beta; SensorEngine.baseGamma = e.gamma; return; }
-                
-                // EMA 滤波抗手抖
-                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); 
-                const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
+                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
                 if (dBeta > 12 || dGamma > 12) App.triggerDisturb();
             },
             handleVisibility: () => {
@@ -420,7 +454,7 @@
             const modal = document.getElementById('posterModal');
             const closeBtn = document.getElementById('closeModalBtn');
 
-            // 全新：生成专属电影级邀请海报
+            // 电影级海报生成逻辑
             inviteBtn.addEventListener('click', async () => {
                 if (window.location.protocol === 'file:') {
                     alert("⚠️ 协议错误提醒 ⚠️\n\n请使用 VS Code 'Live Server' 或部署在 HTTP 环境，才能生成有效连接和海报！"); return;
@@ -433,17 +467,15 @@
                 const url = window.location.href;
                 
                 try {
-                    // 1. 生成二维码
                     const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: '#ffffff', light: '#00000000' } });
                     const qrImg = new Image();
                     qrImg.src = qrDataUrl;
                     
                     qrImg.onload = () => {
-                        // 2. 绘制海报
                         const canvas = document.getElementById('posterCanvas');
                         const ctx = canvas.getContext('2d');
                         
-                        // 背景底色与暖光晕
+                        // 海报深色底与暖光晕
                         ctx.fillStyle = '#0a0908'; ctx.fillRect(0, 0, 1080, 1920);
                         const grad = ctx.createRadialGradient(540, 960, 50, 540, 960, 800);
                         grad.addColorStop(0, 'rgba(255, 122, 24, 0.25)'); grad.addColorStop(1, 'rgba(10, 9, 8, 0)');
@@ -455,7 +487,7 @@
                         // 浪漫金句
                         ctx.fillStyle = 'rgba(247, 242, 234, 0.9)'; ctx.font = 'italic 46px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“留了一盏微火，等同路人归来”', 540, 560);
                         
-                        // 绘制装饰火星 (模拟粒子飘散)
+                        // 绘制海报装饰火星
                         ctx.fillStyle = '#ff7a18';
                         for(let i = 0; i < 35; i++) {
                             ctx.beginPath();
@@ -463,29 +495,22 @@
                             ctx.fill();
                         }
                         
-                        // 绘制二维码
+                        // 二维码与底部文案
                         ctx.drawImage(qrImg, 390, 800, 300, 300);
-                        
-                        // 底部文案
                         ctx.fillStyle = 'rgba(255, 179, 71, 0.8)'; ctx.font = '36px "Noto Serif SC", serif'; ctx.fillText('长按识别二维码 · 进入专属微火房间', 540, 1300);
-                        
-                        // 防封提示
                         ctx.fillStyle = 'rgba(247, 242, 234, 0.5)'; ctx.font = '28px "Noto Serif SC", serif'; ctx.fillText('请点击右上角「在默认浏览器中打开」以唤醒传感器', 540, 1380);
 
-                        // 3. 显示弹窗
                         document.getElementById('posterImg').src = canvas.toDataURL('image/png');
                         modal.classList.add('show');
                         inviteBtn.innerText = "生成专属微火海报";
                     };
                 } catch (e) {
-                    inviteBtn.innerText = "海报生成失败，请重试";
-                    console.error(e);
+                    inviteBtn.innerText = "海报生成失败，请重试"; console.error(e);
                 }
             });
 
             closeBtn.addEventListener('click', () => modal.classList.remove('show'));
 
-            // 完美的全局触摸解锁音频防拦截机制
             const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
             document.addEventListener('pointerdown', unlockAudio, { once: true });
 
@@ -580,7 +605,8 @@
 
         window.addEventListener('DOMContentLoaded', () => { 
             if (checkWeChat()) return; 
-            CanvasEngine.init(); 
+            BgHearthEngine.init(); // 启动底层高级极简火星引擎
+            CanvasEngine.init(); // 启动前排热发光引擎
             RTC.init(); 
             initUI(); 
         });
