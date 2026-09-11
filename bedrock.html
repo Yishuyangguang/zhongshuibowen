@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>重力筑基 | The Bedrock Phase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-bedrock: #0b0c0e;
+            --rock-gray: #2a2d34;
+            --molten-gold: #d4af37;
+            --mineral-white: #f1f5f9;
+            --font-serif: 'Noto Serif SC', 'Playfair Display', serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body, html {
+            width: 100%; height: 100%; background-color: var(--bg-bedrock); color: var(--mineral-white);
+            font-family: var(--font-serif); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+        }
+        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        
+        #bedrockCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        
+        .state-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none;
+            transition: opacity 1.5s ease-in-out; padding: 2rem; text-align: center;
+        }
+        .state-layer.active { opacity: 1; pointer-events: auto; }
+
+        h1 { font-size: 2.2rem; font-weight: 400; letter-spacing: 0.25em; margin-bottom: 0.5rem; color: var(--mineral-white); text-shadow: 0 0 25px rgba(212,175,55,0.3); }
+        .subtitle { font-size: 0.9rem; color: rgba(241, 245, 249, 0.6); letter-spacing: 0.15em; margin-bottom: 2rem; }
+        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(241, 245, 249, 0.85); max-width: 320px; }
+
+        .invite-btn {
+            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4);
+            color: var(--molten-gold); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 20px;
+            letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(212,175,55,0.1);
+        }
+        .invite-btn:active { background: rgba(212, 175, 55, 0.2); }
+
+        .slider-container { position: absolute; bottom: 14%; width: 200px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; display: flex; align-items: center; }
+        .slider-thumb {
+            width: 44px; height: 44px; background: rgba(212, 175, 55, 0.15); border: 1px solid rgba(212, 175, 55, 0.6); border-radius: 50%;
+            position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(212, 175, 55, 0.3); transition: box-shadow 0.3s;
+        }
+        .slider-thumb::after { content: ''; width: 14px; height: 14px; background: var(--molten-gold); border-radius: 50%; box-shadow: 0 0 15px var(--molten-gold); }
+        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); pointer-events: none; letter-spacing: 0.1em; }
+
+        .glass-panel {
+            background: rgba(11, 12, 14, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(212, 175, 55, 0.2); padding: 2.2rem 1.6rem; border-radius: 12px; max-width: 360px; width: 100%;
+            margin-bottom: 2rem; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(212,175,55,0.05);
+        }
+        .glass-panel p { margin-bottom: 1.1rem; font-size: 1rem; line-height: 1.9; text-align: left; color: rgba(241, 245, 249, 0.92); }
+        .glass-panel p:last-child { margin-bottom: 0; }
+        .highlight { color: var(--molten-gold); font-weight: 600; text-shadow: 0 0 10px rgba(212,175,55,0.4); }
+
+        .hold-btn-wrapper { position: absolute; bottom: 8%; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; }
+        .hold-btn { width: 64px; height: 64px; border-radius: 50%; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.5); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; color: var(--molten-gold); z-index: 2; font-weight: 600; }
+        .hold-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; pointer-events: none; }
+        .hold-ring circle { fill: none; stroke: var(--molten-gold); stroke-width: 4; stroke-dasharray: 239; stroke-dashoffset: 239; transition: stroke-dashoffset 0.1s linear; }
+
+        .bedrock-seal { width: 100px; height: 100px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; }
+        .bedrock-seal::before { content: ''; position: absolute; width: 84px; height: 84px; border: 1px solid rgba(212,175,55,0.4); transform: rotate(45deg); }
+        .bedrock-seal::after { content: ''; position: absolute; width: 44px; height: 44px; background: rgba(212,175,55,0.2); border: 2px solid var(--molten-gold); box-shadow: 0 0 25px rgba(212,175,55,0.6); }
+
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2.2rem; background: transparent; border: 1px solid rgba(212, 175, 55, 0.6); color: var(--molten-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 4px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(212,175,55,0.15); }
+        .save-btn:active { background: rgba(212, 175, 55, 0.2); }
+
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 10px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(212,175,55,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; }
+        #renderCanvas { display: none; }
+    </style>
+</head>
+<body>
+    <div id="status-bar">环境初始化中...</div>
+    <canvas id="bedrockCanvas"></canvas>
+    <canvas id="renderCanvas" width="1080" height="1920"></canvas>
+
+    <div id="app">
+        <!-- 状态一：阵营校准 -->
+        <div id="state1" class="state-layer active">
+            <h1 ondblclick="DEV_MODE.simulateConnection()">重力筑基</h1>
+            <p class="subtitle">在两姓的喧嚣之外，立下二人独存的磐石</p>
+            <p class="instruction">请将两台手机平放于桌面，长边紧密贴合</p>
+            
+            <button class="invite-btn" id="inviteBtn">复制房间链接发送给伴侣</button>
+
+            <div class="slider-container" id="alignSliderBox">
+                <div class="slider-text" id="sliderText">滑动向接缝靠拢</div>
+                <div class="slider-thumb" id="sliderThumb"></div>
+            </div>
+        </div>
+
+        <!-- 状态二：地脉咬合 -->
+        <div id="state2" class="state-layer"></div>
+
+        <!-- 状态三：杂质沉淀与主权宣告 -->
+        <div id="state3" class="state-layer">
+            <div class="glass-panel">
+                <p>双方面对面站立或端坐，<span class="highlight">双手各自搭在对方的肩膀上</span>，把两台手机完全留在视线之外。</p>
+                <p>轮流开口，向对方挑出一件最近双方父母提出、但让自己感到巨大压力、委屈或被绑架的事情（如彩礼、署名、干预）。</p>
+                <p>两人同时看着对方眼睛，清晰说出：<br><br>
+                <span class="highlight">“外面的声音很重要，但我们俩筑起的这个新房间才是第一位的。无论他们怎么看，我们永远是同一个阵营。”</span></p>
+            </div>
+            <div class="hold-btn-wrapper">
+                <svg class="hold-ring" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38"></circle></svg>
+                <div class="hold-btn" id="holdBtn">长按</div>
+            </div>
+        </div>
+
+        <!-- 状态四：磐石法印 -->
+        <div id="state4" class="state-layer">
+            <div class="bedrock-seal"></div>
+            <div class="glass-panel" style="padding: 1.5rem;">
+                <p style="font-size: 0.85rem; text-align: center; color: rgba(212,175,55,0.8); margin-bottom: 0.8rem;">请一起读出以下内容：</p>
+                <p style="text-align: center; font-size: 0.92rem; line-height: 1.85;">
+                    婚姻不是两个家族的合同谈判，而是一个全新独立生命体的诞生。从今天起，你的伴侣超越所有血缘长辈，成为你首要保护、优先体谅的骨中之肉。
+                </p>
+            </div>
+            <button class="save-btn" id="saveBtn">封存盟约磐石</button>
+        </div>
+    </div>
+
+    <script>
+        const App = {
+            state: 1, isHost: false, epoch: 0, disturbed: false,
+            els: { s1: document.getElementById('state1'), s2: document.getElementById('state2'), s3: document.getElementById('state3'), s4: document.getElementById('state4'), status: document.getElementById('status-bar') },
+            setState(s) {
+                this.state = s;
+                Object.values(this.els).forEach(el => { if (el && el.classList) el.classList.remove('active'); });
+                if (this.els[`s${s}`]) this.els[`s${s}`].classList.add('active');
+                if (s === 1) {
+                    CanvasEngine.setBedrockMode(false); AudioEngine.stopResonance();
+                } else if (s === 2) {
+                    CanvasEngine.setBedrockMode(true); AudioEngine.playResonance(); SensorEngine.startMonitoring();
+                    setTimeout(() => {
+                        if (this.state === 2 && !this.disturbed) {
+                            this.setState(3); CanvasEngine.fadeToStableCore(); AudioEngine.fadeResonance();
+                        }
+                    }, 10000);
+                }
+            },
+            triggerDisturb() {
+                if (this.state === 1 || this.state === 4 || this.disturbed) return;
+                this.disturbed = true; RTC.send({ type: 'DISTURBED' }); this.setState(1);
+                this.els.status.innerText = "阵营动摇，磐石现裂纹";
+                if ('vibrate' in navigator) { try{ navigator.vibrate([120, 60, 120]); }catch(e){} }
+                setTimeout(() => { this.disturbed = false; }, 2000);
+            }
+        };
+
+        const AudioEngine = {
+            ctx: null, oscs: [], gainNode: null, initialized: false,
+            forceUnlock() {
+                if(this.initialized) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
+            },
+            playResonance() {
+                this.forceUnlock();
+                if (this.oscs.length > 0) return;
+                // 多谐波地壳共振算法：55Hz, 110Hz, 165Hz, 220Hz
+                const freqs = [55, 110, 165, 220];
+                this.gainNode = this.ctx.createGain();
+                this.gainNode.gain.setValueAtTime(0.01, this.ctx.currentTime);
+                this.gainNode.gain.exponentialRampToValueAtTime(0.4, this.ctx.currentTime + 1.5);
+                this.gainNode.connect(this.ctx.destination);
+
+                freqs.forEach((f, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+                    osc.frequency.value = f;
+                    osc.connect(this.gainNode);
+                    osc.start();
+                    this.oscs.push(osc);
+                });
+            },
+            fadeResonance() {
+                if (this.gainNode && this.ctx) {
+                    this.gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 3);
+                }
+            },
+            stopResonance() {
+                if (this.oscs.length > 0 && this.ctx) {
+                    this.oscs.forEach(osc => { try{ osc.stop(); }catch(e){} });
+                    this.oscs = [];
+                    this.gainNode = null;
+                }
+            }
+        };
+
+        const CanvasEngine = {
+            canvas: document.getElementById('bedrockCanvas'), ctx: null, reqId: null, dustParticles: [], isBedrockActive: false, isStable: false,
+            init() {
+                this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
+                for(let i=0; i<120; i++) this.dustParticles.push(this.createDust());
+                this.start();
+            },
+            resize() {
+                const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
+            },
+            createDust() {
+                return { x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, vx: (Math.random()-0.5)*0.6, vy: (Math.random()-0.5)*0.6, r: Math.random()*2 + 1, alpha: Math.random()*0.5 + 0.1 };
+            },
+            setBedrockMode(active) { this.isBedrockActive = active; this.isStable = false; },
+            fadeToStableCore() { this.isStable = true; },
+            start() { if (!this.reqId) this.draw(); },
+            draw() {
+                const w = window.innerWidth; const h = window.innerHeight;
+                this.ctx.fillStyle = this.isStable ? '#07080a' : '#0b0c0e';
+                this.ctx.fillRect(0, 0, w, h);
+                
+                const jointX = App.isHost ? w : 0;
+                const bedrockWidth = w * 0.4;
+                
+                if (this.isBedrockActive) {
+                    const grad = this.ctx.createLinearGradient(App.isHost ? w - bedrockWidth : bedrockWidth, 0, jointX, 0);
+                    grad.addColorStop(0, 'rgba(212, 175, 55, 0)');
+                    grad.addColorStop(1, this.isStable ? 'rgba(212, 175, 55, 0.45)' : 'rgba(212, 175, 55, 0.2)');
+                    this.ctx.fillStyle = grad;
+                    this.ctx.fillRect(App.isHost ? w - bedrockWidth : 0, 0, bedrockWidth, h);
+                }
+
+                // 绘制粉尘/杂质排斥或沉淀动效
+                this.dustParticles.forEach(p => {
+                    p.x += p.vx; p.y += p.vy;
+                    if(p.x < 0) p.x = w; if(p.x > w) p.x = 0;
+                    if(p.y < 0) p.y = h; if(p.y > h) p.y = 0;
+
+                    this.ctx.fillStyle = `rgba(212, 175, 55, ${p.alpha})`;
+                    this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); this.ctx.fill();
+                });
+
+                this.reqId = requestAnimationFrame(() => this.draw());
+            }
+        };
+
+        const SensorEngine = {
+            baseBeta: null, baseGamma: null, wakeLock: null,
+            async requestPermissions() {
+                AudioEngine.playResonance();
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
+                }
+                this.requestWakeLock();
+            },
+            async requestWakeLock() { if ('wakeLock' in navigator) { try { this.wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } },
+            startMonitoring() {
+                this.baseBeta = null; this.baseGamma = null;
+                window.addEventListener('deviceorientation', this.handleOrientation);
+                document.addEventListener('visibilitychange', this.handleVisibility);
+            },
+            handleOrientation: (e) => {
+                if (App.state !== 2 && App.state !== 3) return;
+                if (SensorEngine.baseBeta === null) { SensorEngine.baseBeta = e.beta; SensorEngine.baseGamma = e.gamma; return; }
+                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
+                if (dBeta > 12 || dGamma > 12) App.triggerDisturb();
+            },
+            handleVisibility: () => {
+                if (document.visibilityState === 'hidden') { if (App.state === 2 || App.state === 3) App.triggerDisturb(); } 
+                else { SensorEngine.requestWakeLock(); }
+            }
+        };
+
+        const RTC = {
+            peer: null, conn: null, roomId: '', connected: false, localSliding: false, remoteSliding: false,
+            init() {
+                let hash = location.hash.replace('#room=', '');
+                if (!hash) { hash = Math.random().toString(36).substring(2, 8); location.hash = '#room=' + hash; }
+                this.roomId = hash; const hostId = `bedrock-p-${hash}-h`; const guestId = `bedrock-p-${hash}-g`;
+
+                this.peer = new Peer(hostId);
+                this.peer.on('open', () => {
+                    App.isHost = true; App.els.status.innerText = `盟约房间: ${hash} | 等待伴侣靠拢...`;
+                    this.peer.on('connection', (c) => { this.conn = c; this.setupConnection(); });
+                });
+                this.peer.on('error', (err) => {
+                    if (err.type === 'unavailable-id') {
+                        this.peer.destroy(); this.peer = new Peer(guestId);
+                        this.peer.on('open', () => {
+                            App.isHost = false; this.conn = this.peer.connect(hostId, { reliable: true }); this.setupConnection();
+                        });
+                    }
+                });
+            },
+            setupConnection() {
+                this.conn.on('open', () => {
+                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方金锁对齐";
+                    if (App.isHost) { App.epoch = Date.now(); this.send({ type: 'SYNC', epoch: App.epoch }); }
+                });
+                this.conn.on('data', (data) => {
+                    if (data.type === 'SYNC') App.epoch = data.epoch;
+                    if (data.type === 'SLIDING') { this.remoteSliding = data.state; this.checkSyncSlide(); }
+                    if (data.type === 'DISTURBED') { if(App.state === 2 || App.state === 3) App.triggerDisturb(); }
+                    if (data.type === 'SYNC_STATE_4') App.setState(4);
+                });
+                this.conn.on('close', () => { this.connected = false; App.els.status.innerText = "伴侣已断开连接"; if(App.state !== 1) App.triggerDisturb(); });
+            },
+            send(data) { if (this.connected && this.conn) this.conn.send(data); },
+            setLocalSliding(state) { this.localSliding = state; this.send({ type: 'SLIDING', state: state }); this.checkSyncSlide(); },
+            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "地脉咬合中..."; setTimeout(() => App.setState(2), 300); } }
+        };
+
+        function initUI() {
+            const inviteBtn = document.getElementById('inviteBtn');
+            inviteBtn.addEventListener('click', () => {
+                if (window.location.protocol === 'file:') {
+                    alert("⚠️ 本地协议提醒 ⚠️\n\n您正在直接打开本地文件 (file:///)。\n请使用 VS Code 'Live Server' 插件运行，或部署至任意 HTTP 服务器，方可让两台手机通过网址共享房间！");
+                    return;
+                }
+                const url = window.location.href;
+                navigator.clipboard.writeText(url).then(() => {
+                    inviteBtn.innerText = "已复制专属盟约链接！"; inviteBtn.style.borderColor = "var(--molten-gold)";
+                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(212, 175, 55, 0.4)"; }, 3000);
+                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制地址栏"; });
+            });
+
+            const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
+            document.addEventListener('pointerdown', unlockAudio, { once: true });
+
+            const sliderBox = document.getElementById('alignSliderBox'); const thumb = document.getElementById('sliderThumb');
+            let isDragging = false;
+            setTimeout(() => { thumb.style.left = App.isHost ? '0px' : '156px'; }, 1000);
+
+            thumb.addEventListener('pointerdown', () => { isDragging = true; SensorEngine.requestPermissions(); });
+            window.addEventListener('pointermove', (e) => {
+                if (!isDragging) return; const rect = sliderBox.getBoundingClientRect();
+                let x = e.clientX - rect.left - 22; x = Math.max(0, Math.min(x, 156)); thumb.style.left = x + 'px';
+                const target = App.isHost ? 156 : 0;
+                if (Math.abs(x - target) < 10) { if (!RTC.localSliding) RTC.setLocalSliding(true); } else { if (RTC.localSliding) RTC.setLocalSliding(false); }
+            });
+            window.addEventListener('pointerup', () => {
+                if (isDragging) { isDragging = false; RTC.setLocalSliding(false); thumb.style.left = App.isHost ? '0px' : '156px'; }
+            });
+
+            const holdBtn = document.getElementById('holdBtn'); const ringCircle = document.querySelector('.hold-ring circle');
+            let holdTimer = null; let progress = 0;
+            const startHold = () => {
+                if (App.state !== 3) return; progress = 0;
+                holdTimer = setInterval(() => {
+                    progress = Math.min(100, progress + 0.66); ringCircle.style.strokeDashoffset = 239 - (239 * progress / 100);
+                    if (progress >= 100) {
+                        clearInterval(holdTimer);
+                        if ('vibrate' in navigator) { try{navigator.vibrate([80, 50, 80]);}catch(e){} }
+                        RTC.send({ type: 'SYNC_STATE_4' }); App.setState(4);
+                    }
+                }, 20);
+            };
+            const stopHold = () => { clearInterval(holdTimer); progress = 0; ringCircle.style.strokeDashoffset = 239; };
+            holdBtn.addEventListener('pointerdown', startHold); holdBtn.addEventListener('pointerup', stopHold); holdBtn.addEventListener('pointerleave', stopHold);
+            document.getElementById('saveBtn').addEventListener('click', generateCertificate);
+        }
+
+        function generateCertificate() {
+            const canvas = document.getElementById('renderCanvas'); const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0b0c0e'; ctx.fillRect(0, 0, 1080, 1920);
+            
+            ctx.beginPath(); ctx.arc(540, 500, 100, 0, Math.PI * 2); ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 3; ctx.stroke();
+            
+            ctx.fillStyle = '#f1f5f9'; ctx.textAlign = 'center'; ctx.font = '50px Noto Serif SC, serif'; ctx.fillText('重 力 筑 基', 540, 780);
+            
+            ctx.font = '35px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(241, 245, 249, 0.88)';
+            const text = "婚姻不是两个家族的合同谈判，而是一个全新独立生命体的诞生。从今天起，你的伴侣超越所有血缘长辈，成为你首要保护、优先体谅的骨中之肉。";
+            let line = ''; let y = 980;
+            for (let i = 0; i < text.length; i++) {
+                line += text[i];
+                if (line.length > 18) { ctx.fillText(line, 540, y); line = ''; y += 70; }
+            }
+            if(line) ctx.fillText(line, 540, y);
+            
+            ctx.font = '28px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(212, 175, 55, 0.7)';
+            const date = new Date();
+            ctx.fillText(`于此日，确立不可分割的主权 · ${date.getFullYear()}.${date.getMonth()+1}.${date.getDate()}`, 540, 1750);
+            
+            const link = document.createElement('a'); link.download = 'bedrock-phase-seal.png'; link.href = canvas.toDataURL('image/png'); link.click();
+        }
+
+        const DEV_MODE = {
+            simulateConnection() {
+                if (App.state !== 1) return;
+                RTC.localSliding = true; RTC.remoteSliding = true; App.isHost = true; App.epoch = Date.now();
+                SensorEngine.requestPermissions(); RTC.checkSyncSlide(); App.els.status.innerText = "沙盒模拟模式已激活";
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => { CanvasEngine.init(); RTC.init(); initUI(); });
+        window.addEventListener('beforeunload', () => location.hash = '');
+    </script>
+</body>
+</html>
