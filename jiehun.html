@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>水镜探源 | The Mirror Phase</title>
+    <!-- 引入优雅的古典衬线字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-dark: #0d0f12;
+            --text-main: #f0f4f8;
+            --water-cyan: #38bdf8;
+            --water-deep: rgba(56, 189, 248, 0.15);
+            --font-serif: 'Noto Serif SC', 'Playfair Display', serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body, html { width: 100%; height: 100%; background-color: var(--bg-dark); color: var(--text-main); font-family: var(--font-serif); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        
+        #waterCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        
+        .state-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 1.5s ease-in-out; padding: 1.5rem; text-align: center; }
+        .state-layer.active { opacity: 1; pointer-events: auto; }
+
+        h1 { font-size: 2rem; font-weight: 400; letter-spacing: 0.2em; margin-bottom: 0.5rem; color: #ffffff; text-shadow: 0 0 20px rgba(56,189,248,0.3); }
+        .subtitle { font-size: 0.9rem; color: rgba(240, 244, 248, 0.6); letter-spacing: 0.1em; margin-bottom: 2rem; }
+        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(240, 244, 248, 0.9); max-width: 320px; }
+
+        .invite-btn { margin-top: 1.5rem; padding: 0.7rem 1.5rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); color: var(--water-cyan); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(56,189,248,0.1); }
+        .invite-btn:active { background: rgba(56, 189, 248, 0.2); }
+
+        .slider-container { position: absolute; bottom: 12%; width: 220px; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; display: flex; align-items: center; }
+        .slider-thumb { width: 48px; height: 48px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.6); border-radius: 50%; position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(56, 189, 248, 0.4); transition: box-shadow 0.3s; }
+        .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--water-cyan); border-radius: 50%; box-shadow: 0 0 15px var(--water-cyan); }
+        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); pointer-events: none; letter-spacing: 0.1em; }
+
+        /* 核心防溢出、高可读性毛玻璃面板 */
+        .glass-panel { 
+            background: rgba(13, 15, 18, 0.85); /* 极深的底色，确保文字对比度 */
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
+            border: 1px solid rgba(56, 189, 248, 0.25); 
+            padding: 2.2rem 1.6rem; 
+            border-radius: 16px; 
+            width: 90vw; /* 动态宽度防溢出 */
+            max-width: 360px; 
+            margin-bottom: 2rem; 
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(56,189,248,0.05); 
+        }
+        .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(240, 244, 248, 0.95); }
+        .glass-panel p:last-child { margin-bottom: 0; }
+        /* 重点高亮词 */
+        .highlight { color: var(--water-cyan); font-weight: 600; text-shadow: 0 0 12px rgba(56,189,248,0.4); }
+        .action-point { color: #81e6d9; font-weight: 400; } /* 动作指引采用柔和青色 */
+
+        .hold-btn-wrapper { position: absolute; bottom: 8%; width: 90px; height: 90px; display: flex; justify-content: center; align-items: center; }
+        .hold-btn { width: 66px; height: 66px; border-radius: 50%; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.4); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; font-weight: 600; color: var(--water-cyan); z-index: 2; letter-spacing: 0.05em; }
+        .hold-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; pointer-events: none; }
+        .hold-ring circle { fill: none; stroke: var(--water-cyan); stroke-width: 4; stroke-dasharray: 264; stroke-dashoffset: 264; transition: stroke-dashoffset 0.1s linear; } /* r=42 -> 2*pi*r = 264 */
+
+        .water-seal { width: 90px; height: 90px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(13, 15, 18, 0) 70%); border-radius: 50%; box-shadow: 0 0 35px rgba(56, 189, 248, 0.5); }
+        .water-seal::after { content: ''; position: absolute; width: 30px; height: 30px; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 15px #fff; }
+
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(56, 189, 248, 0.5); color: var(--water-cyan); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(56,189,248,0.1); }
+        .save-btn:active { background: rgba(56, 189, 248, 0.25); }
+
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(56,189,248,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
+        #renderCanvas { display: none; }
+    </style>
+</head>
+<body>
+    <div id="status-bar">环境初始化中...</div>
+    <canvas id="waterCanvas"></canvas>
+    <canvas id="renderCanvas" width="1080" height="1920"></canvas>
+
+    <div id="app">
+        <!-- 状态一：等待汇流 -->
+        <div id="state1" class="state-layer active">
+            <h1 ondblclick="DEV_MODE.simulateConnection()">水镜探源</h1>
+            <p class="subtitle">在喧嚣中静止，让真实浮出水面</p>
+            <p class="instruction">请将两台手机平放于桌面，长边紧贴</p>
+            
+            <button class="invite-btn" id="inviteBtn">复制连接发送给伴侣</button>
+
+            <div class="slider-container" id="alignSliderBox">
+                <div class="slider-text" id="sliderText">滑动向接缝靠拢</div>
+                <div class="slider-thumb" id="sliderThumb"></div>
+            </div>
+        </div>
+
+        <!-- 状态二：水镜成形 -->
+        <div id="state2" class="state-layer"></div>
+
+        <!-- 状态三：破冰引导 -->
+        <div id="state3" class="state-layer">
+            <div class="glass-panel">
+                <p><span class="action-point">双手平放于桌面两侧，不靠向对方，不低头看手机。</span>抬头平视对方双眼，保持呼吸均匀。</p>
+                <p>轮流开口，向对方坦白一件今天出门前你曾为之感到紧绷、刻意掩饰或内心不安的微小瑕疵。</p>
+                <p>听的一方全程不打断、不讲道理、不进行评判，听完后专注看着对方眼睛回应：<br><br>
+                <span class="highlight">“我看见了，这个真实的你同样值得被珍视。”</span></p>
+            </div>
+            <div class="hold-btn-wrapper">
+                <svg class="hold-ring" viewBox="0 0 90 90"><circle cx="45" cy="45" r="42"></circle></svg>
+                <div class="hold-btn" id="holdBtn">长按</div>
+            </div>
+        </div>
+
+        <!-- 状态四：澄澈凭证 -->
+        <div id="state4" class="state-layer">
+            <div class="water-seal"></div>
+            <div class="glass-panel" style="padding: 1.8rem 1.5rem;">
+                <p style="font-size: 0.85rem; text-align: center; color: rgba(56,189,248,0.7); margin-bottom: 1rem;">请一起读出以下内容：</p>
+                <p style="text-align: center; font-size: 0.95rem; line-height: 1.85;">
+                    允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。
+                </p>
+            </div>
+            <button class="save-btn" id="saveBtn">封存清澈时刻</button>
+        </div>
+    </div>
+
+    <script>
+        const App = {
+            state: 1, isHost: false, epoch: 0, disturbed: false,
+            els: { s1: document.getElementById('state1'), s2: document.getElementById('state2'), s3: document.getElementById('state3'), s4: document.getElementById('state4'), status: document.getElementById('status-bar') },
+            setState(s) {
+                this.state = s;
+                Object.values(this.els).forEach(el => { if (el && el.classList) el.classList.remove('active'); });
+                if (this.els[`s${s}`]) this.els[`s${s}`].classList.add('active');
+                if (s === 1) {
+                    CanvasEngine.stop(); AudioEngine.stopAll();
+                } else if (s === 2) {
+                    CanvasEngine.start(); AudioEngine.playWaterFlow(); SensorEngine.startMonitoring();
+                    setTimeout(() => {
+                        if (this.state === 2 && !this.disturbed) {
+                            this.setState(3); AudioEngine.fadeWaterFlow();
+                        }
+                    }, 10000);
+                }
+            },
+            triggerDisturb() {
+                if (this.state === 1 || this.state === 4 || this.disturbed) return;
+                this.disturbed = true; RTC.send({ type: 'DISTURBED' }); this.setState(1);
+                this.els.status.innerText = "水面惊动，水镜破碎";
+                AudioEngine.playShatter();
+                if ('vibrate' in navigator) { try{ navigator.vibrate([60, 40, 60]); }catch(e){} }
+                setTimeout(() => { this.disturbed = false; }, 2000);
+            }
+        };
+
+        const AudioEngine = {
+            ctx: null, waterNode: null, initialized: false,
+            forceUnlock() {
+                if(this.initialized) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
+            },
+            createPinkNoise() {
+                const bufferSize = this.ctx.sampleRate * 2; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179; b1 = 0.99332 * b1 + white * 0.0750759; b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856; b4 = 0.55000 * b4 + white * 0.5329522; b5 = -0.7616 * b5 - white * 0.0168980;
+                    output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                    output[i] *= 0.11; b6 = white * 0.115926;
+                }
+                return buffer;
+            },
+            playWaterFlow() {
+                this.forceUnlock();
+                if (this.waterNode) return;
+                const noise = this.ctx.createBufferSource(); noise.buffer = this.createPinkNoise(); noise.loop = true;
+                const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 350; // 极其柔和的水流声
+                const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.01, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.6, this.ctx.currentTime + 2);
+                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+                noise.start(); this.waterNode = { source: noise, gain: gain };
+            },
+            fadeWaterFlow() {
+                if (this.waterNode && this.ctx) this.waterNode.gain.gain.exponentialRampToValueAtTime(0.05, this.ctx.currentTime + 3);
+            },
+            playDrop() {
+                this.forceUnlock();
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.6, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+            },
+            playShatter() {
+                this.forceUnlock();
+                const bufferSize = this.ctx.sampleRate * 0.4; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.05));
+                const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1500;
+                const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.8, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); noise.start();
+            },
+            stopAll() {
+                if (this.waterNode && this.ctx) {
+                    this.waterNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+                    this.waterNode.gain.gain.setValueAtTime(this.waterNode.gain.gain.value, this.ctx.currentTime);
+                    this.waterNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    setTimeout(() => { if(this.waterNode) this.waterNode.source.stop(); this.waterNode = null; }, 500);
+                }
+            }
+        };
+
+        const CanvasEngine = {
+            canvas: document.getElementById('waterCanvas'), ctx: null, reqId: null, running: false,
+            init() {
+                this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
+            },
+            resize() {
+                const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
+            },
+            start() { if (!this.ctx) this.init(); this.running = true; this.draw(); },
+            stop() { this.running = false; if (this.reqId) cancelAnimationFrame(this.reqId); if (this.ctx) this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight); },
+            draw() {
+                if (!this.running) return;
+                const w = window.innerWidth; const h = window.innerHeight;
+                this.ctx.clearRect(0, 0, w, h);
+                const t = (Date.now() - App.epoch) / 1000;
+                
+                // 优雅的多重正弦波叠加
+                const waves = [
+                    { A: 25, w: 0.015, k: 1.5, p: 0 },
+                    { A: 15, w: 0.025, k: 2.5, p: 1 },
+                    { A: 8, w: 0.045, k: 3.5, p: 2 }
+                ];
+                
+                this.ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+                this.ctx.beginPath();
+                
+                if (App.isHost) {
+                    this.ctx.moveTo(w, 0);
+                    for (let y = 0; y <= h; y += 4) {
+                        let x = w - 100; // 水波向内延伸深度
+                        waves.forEach(wave => { x -= wave.A * Math.sin(wave.w * y + wave.k * t + wave.p); });
+                        this.ctx.lineTo(x, y);
+                    }
+                    this.ctx.lineTo(w, h);
+                } else {
+                    this.ctx.moveTo(0, 0);
+                    for (let y = 0; y <= h; y += 4) {
+                        let x = 100;
+                        waves.forEach(wave => { x += wave.A * Math.sin(wave.w * y + wave.k * t + wave.p); });
+                        this.ctx.lineTo(x, y);
+                    }
+                    this.ctx.lineTo(0, h);
+                }
+                this.ctx.fill();
+                
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.stroke();
+
+                this.reqId = requestAnimationFrame(() => this.draw());
+            }
+        };
+
+        const SensorEngine = {
+            baseBeta: null, baseGamma: null, wakeLock: null,
+            async requestPermissions() {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
+                }
+                this.requestWakeLock();
+            },
+            async requestWakeLock() { if ('wakeLock' in navigator) { try { this.wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } },
+            startMonitoring() {
+                this.baseBeta = null; this.baseGamma = null;
+                window.addEventListener('deviceorientation', this.handleOrientation);
+                document.addEventListener('visibilitychange', this.handleVisibility);
+            },
+            handleOrientation: (e) => {
+                if (App.state !== 2 && App.state !== 3) return;
+                if (SensorEngine.baseBeta === null) { SensorEngine.baseBeta = e.beta; SensorEngine.baseGamma = e.gamma; return; }
+                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
+                if (dBeta > 12 || dGamma > 12) App.triggerDisturb();
+            },
+            handleVisibility: () => {
+                if (document.visibilityState === 'hidden') { if (App.state === 2 || App.state === 3) App.triggerDisturb(); } 
+                else { SensorEngine.requestWakeLock(); }
+            }
+        };
+
+        const RTC = {
+            peer: null, conn: null, roomId: '', connected: false, localSliding: false, remoteSliding: false,
+            init() {
+                let hash = location.hash.replace('#room=', '');
+                if (!hash) { hash = Math.random().toString(36).substring(2, 8); location.hash = '#room=' + hash; }
+                this.roomId = hash; const hostId = `mirror-p-${hash}-h`; const guestId = `mirror-p-${hash}-g`;
+
+                this.peer = new Peer(hostId);
+                this.peer.on('open', () => {
+                    App.isHost = true; App.els.status.innerText = `当前水域: ${hash} | 等待伴侣汇流...`;
+                    this.peer.on('connection', (c) => { this.conn = c; this.setupConnection(); });
+                });
+                this.peer.on('error', (err) => {
+                    if (err.type === 'unavailable-id') {
+                        this.peer.destroy(); this.peer = new Peer(guestId);
+                        this.peer.on('open', () => {
+                            App.isHost = false; this.conn = this.peer.connect(hostId, { reliable: true }); this.setupConnection();
+                        });
+                    }
+                });
+            },
+            setupConnection() {
+                this.conn.on('open', () => {
+                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方光点";
+                    if (App.isHost) { App.epoch = Date.now(); this.send({ type: 'SYNC', epoch: App.epoch }); }
+                });
+                this.conn.on('data', (data) => {
+                    if (data.type === 'SYNC') App.epoch = data.epoch;
+                    if (data.type === 'SLIDING') { this.remoteSliding = data.state; this.checkSyncSlide(); }
+                    if (data.type === 'DISTURBED') { if(App.state === 2 || App.state === 3) App.triggerDisturb(); }
+                    if (data.type === 'SYNC_STATE_4') App.setState(4);
+                });
+                this.conn.on('close', () => { this.connected = false; App.els.status.innerText = "伴侣已断开连接"; if(App.state !== 1) App.triggerDisturb(); });
+            },
+            send(data) { if (this.connected && this.conn) this.conn.send(data); },
+            setLocalSliding(state) { this.localSliding = state; this.send({ type: 'SLIDING', state: state }); this.checkSyncSlide(); },
+            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "水镜融合中..."; AudioEngine.playDrop(); setTimeout(() => App.setState(2), 200); } }
+        };
+
+        function initUI() {
+            const inviteBtn = document.getElementById('inviteBtn');
+            inviteBtn.addEventListener('click', () => {
+                if (window.location.protocol === 'file:') {
+                    alert("⚠️ 协议错误提醒 ⚠️\n\n请不要直接双击本地 HTML 文件 (file:///)。\n请使用 VS Code 'Live Server' 插件打开，这样才能跨设备联机！");
+                    return;
+                }
+                const url = window.location.href;
+                navigator.clipboard.writeText(url).then(() => {
+                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--water-cyan)";
+                    setTimeout(() => { inviteBtn.innerText = "复制连接发送给伴侣"; inviteBtn.style.borderColor = "rgba(56, 189, 248, 0.3)"; }, 3000);
+                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制顶部地址"; });
+            });
+
+            const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
+            document.addEventListener('pointerdown', unlockAudio, { once: true });
+
+            const sliderBox = document.getElementById('alignSliderBox'); const thumb = document.getElementById('sliderThumb');
+            let isDragging = false;
+            setTimeout(() => { thumb.style.left = App.isHost ? '0px' : '172px'; }, 1000);
+
+            thumb.addEventListener('pointerdown', () => { isDragging = true; SensorEngine.requestPermissions(); });
+            window.addEventListener('pointermove', (e) => {
+                if (!isDragging) return; const rect = sliderBox.getBoundingClientRect();
+                let x = e.clientX - rect.left - 24; x = Math.max(0, Math.min(x, 172)); thumb.style.left = x + 'px';
+                const target = App.isHost ? 172 : 0;
+                if (Math.abs(x - target) < 10) { if (!RTC.localSliding) RTC.setLocalSliding(true); } else { if (RTC.localSliding) RTC.setLocalSliding(false); }
+            });
+            window.addEventListener('pointerup', () => {
+                if (isDragging) { isDragging = false; RTC.setLocalSliding(false); thumb.style.left = App.isHost ? '0px' : '172px'; }
+            });
+
+            const holdBtn = document.getElementById('holdBtn'); const ringCircle = document.querySelector('.hold-ring circle');
+            let holdTimer = null; let progress = 0;
+            const startHold = () => {
+                if (App.state !== 3) return; progress = 0;
+                holdTimer = setInterval(() => {
+                    progress = Math.min(100, progress + 0.66); ringCircle.style.strokeDashoffset = 264 - (264 * progress / 100);
+                    if (progress >= 100) {
+                        clearInterval(holdTimer);
+                        if ('vibrate' in navigator) { try{navigator.vibrate(60);}catch(e){} }
+                        RTC.send({ type: 'SYNC_STATE_4' }); App.setState(4);
+                    }
+                }, 20);
+            };
+            const stopHold = () => { clearInterval(holdTimer); progress = 0; ringCircle.style.strokeDashoffset = 264; };
+            holdBtn.addEventListener('pointerdown', startHold); holdBtn.addEventListener('pointerup', stopHold); holdBtn.addEventListener('pointerleave', stopHold);
+            
+            document.getElementById('saveBtn').addEventListener('click', generateCertificate);
+        }
+
+        function generateCertificate() {
+            const canvas = document.getElementById('renderCanvas'); const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0d0f12'; ctx.fillRect(0, 0, 1080, 1920);
+            
+            const grad = ctx.createRadialGradient(540, 500, 50, 540, 500, 450);
+            grad.addColorStop(0, 'rgba(56, 189, 248, 0.2)'); grad.addColorStop(1, 'rgba(13, 15, 18, 0)');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
+            
+            ctx.beginPath(); ctx.arc(540, 500, 80, 0, Math.PI * 2); ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3; ctx.stroke();
+            ctx.beginPath(); ctx.arc(540, 500, 30, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+            
+            ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '55px Noto Serif SC, serif'; ctx.fillText('水 镜 探 源', 540, 780);
+            
+            ctx.font = '36px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(240, 244, 248, 0.9)';
+            const text = "允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。";
+            let line = ''; let y = 1000;
+            for (let i = 0; i < text.length; i++) {
+                line += text[i];
+                if (line.length > 18) { ctx.fillText(line, 540, y); line = ''; y += 75; }
+            }
+            if(line) ctx.fillText(line, 540, y);
+            
+            ctx.font = '32px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(56, 189, 248, 0.8)'; const date = new Date(); ctx.fillText(`这一刻，我们在真实中相见 · ${date.getFullYear()}.${date.getMonth()+1}.${date.getDate()}`, 540, 1750);
+            
+            const link = document.createElement('a'); link.download = 'mirror-phase-seal.png'; link.href = canvas.toDataURL('image/png'); link.click();
+        }
+
+        const DEV_MODE = {
+            simulateConnection() {
+                if (App.state !== 1) return;
+                RTC.localSliding = true; RTC.remoteSliding = true; App.isHost = true; App.epoch = Date.now();
+                SensorEngine.requestPermissions(); RTC.checkSyncSlide(); App.els.status.innerText = "沙盒模拟模式已激活";
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => { CanvasEngine.init(); RTC.init(); initUI(); });
+        window.addEventListener('beforeunload', () => location.hash = '');
+    </script>
+</body>
+</html>
