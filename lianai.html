@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>水镜探源 | The Mirror Phase</title>
+    <!-- 引入优雅的古典衬线字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <!-- 引入 PeerJS 实现零账号 WebRTC 局域网/广域网通信 -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-dark: #0d0f12;
+            --text-light: #e2e8f0;
+            --water-blue: #38bdf8;
+            --font-serif: 'Noto Serif SC', 'Playfair Display', serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: var(--font-serif);
+            overflow: hidden;
+            /* 移动端视口与手势强锁定，防止弹跳、缩放与选择 */
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #app {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 动态背景画布 */
+        #waterCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* 状态图层通用样式 */
+        .state-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1.5s ease-in-out;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .state-layer.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 排版与视觉 */
+        h1 {
+            font-size: 2rem;
+            font-weight: 400;
+            letter-spacing: 0.2em;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: rgba(226, 232, 240, 0.6);
+            letter-spacing: 0.1em;
+            margin-bottom: 3rem;
+        }
+
+        .instruction {
+            font-size: 1rem;
+            line-height: 1.8;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            color: rgba(226, 232, 240, 0.85);
+            max-width: 320px;
+        }
+
+        /* 状态一：对齐滑块 */
+        .slider-container {
+            position: absolute;
+            bottom: 15%;
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+        }
+
+        .slider-thumb {
+            width: 40px;
+            height: 40px;
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.5);
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+            transition: box-shadow 0.3s;
+        }
+
+        .slider-thumb::after {
+            content: '';
+            width: 12px;
+            height: 12px;
+            background: var(--water-blue);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--water-blue);
+        }
+
+        .slider-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+            pointer-events: none;
+            letter-spacing: 0.1em;
+        }
+
+        /* 状态三：破冰引导玻璃拟态 */
+        .glass-panel {
+            background: rgba(13, 15, 18, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 2rem 1.5rem;
+            border-radius: 12px;
+            max-width: 340px;
+            margin-bottom: 2rem;
+        }
+
+        .glass-panel p {
+            margin-bottom: 1.2rem;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            text-align: left;
+        }
+
+        .glass-panel p:last-child {
+            margin-bottom: 0;
+        }
+
+        .highlight {
+            color: var(--water-blue);
+            font-weight: 400;
+        }
+
+        /* 长按进度环 */
+        .hold-btn-wrapper {
+            position: absolute;
+            bottom: 10%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .hold-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            z-index: 2;
+        }
+
+        .hold-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .hold-ring circle {
+            fill: none;
+            stroke: var(--water-blue);
+            stroke-width: 4;
+            stroke-dasharray: 239; /* 2 * pi * r (38) */
+            stroke-dashoffset: 239;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        /* 状态四：澄澈凭证 */
+        .seal-mark {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 2rem;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.8) 0%, rgba(13, 15, 18, 0) 70%);
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+            position: relative;
+        }
+        .seal-mark::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px; height: 20px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+        }
+
+        .save-btn {
+            margin-top: 2rem;
+            padding: 0.8rem 2rem;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-family: var(--font-serif);
+            font-size: 0.9rem;
+            border-radius: 4px;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .save-btn:active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* 调试/连接提示 */
+        #status-bar {
+            position: absolute;
+            top: env(safe-area-inset-top, 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.3);
+            z-index: 100;
+            pointer-events: none;
+            letter-spacing: 0.05em;
+        }
+        
+        /* 隐藏 Canvas 生成凭证用 */
+        #renderCanvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status-bar">等待对方连接...</div>
+    <canvas id="waterCanvas"></canvas>
+    <canvas id="renderCanvas" width="1080" height="1920"></canvas>
+
+    <div id="app">
+        <!-- 状态一：等待汇流 -->
+        <div id="state1" class="state-layer active">
+            <h1 ondblclick="DEV_MODE.simulateConnection()">水镜探源</h1>
+            <p class="subtitle">在喧嚣中静止，让真实浮出水面</p>
+            <p class="instruction">请将两台手机平放于桌面，长边紧贴<br><br><span style="font-size: 0.8em; opacity: 0.5;">(连接成功后滑动下方圆点)</span></p>
+            
+            <div class="slider-container" id="alignSliderBox">
+                <div class="slider-text" id="sliderText">滑动向接缝靠拢</div>
+                <div class="slider-thumb" id="sliderThumb"></div>
+            </div>
+        </div>
+
+        <!-- 状态二：水镜成形 -->
+        <div id="state2" class="state-layer">
+            <!-- 纯视觉动效展示，无 UI 元素 -->
+        </div>
+
+        <!-- 状态三：破冰引导 -->
+        <div id="state3" class="state-layer">
+            <div class="glass-panel">
+                <p>双手平放于桌面两侧，不靠向对方，不低头看手机。抬头平视对方双眼，保持呼吸均匀。</p>
+                <p>轮流开口，向对方坦白一件今天出门前你曾为之感到紧绷、刻意掩饰或内心不安的微小瑕疵。</p>
+                <p>听的一方全程不打断、不讲道理、不进行评判，听完后专注看着对方眼睛回应：<br><br>
+                <span class="highlight">“我看见了，这个真实的你同样值得被珍视。”</span></p>
+            </div>
+            
+            <div class="hold-btn-wrapper">
+                <svg class="hold-ring" viewBox="0 0 80 80">
+                    <circle cx="40" cy="40" r="38"></circle>
+                </svg>
+                <div class="hold-btn" id="holdBtn">长按</div>
+            </div>
+        </div>
+
+        <!-- 状态四：澄澈凭证 -->
+        <div id="state4" class="state-layer">
+            <div class="seal-mark"></div>
+            <div class="glass-panel" style="padding: 1.5rem;">
+                <p style="font-size: 0.85rem; text-align: center; color: rgba(255,255,255,0.6); margin-bottom: 1rem;">请一起读出以下内容：</p>
+                <p style="text-align: center; font-size: 0.9rem;">
+                    允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。
+                </p>
+            </div>
+            <button class="save-btn" id="saveBtn">保存时刻</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 核心架构管理器
+         */
+        const App = {
+            state: 1,
+            isHost: false, // 决定 Canvas 波纹是从左侧还是右侧发起
+            epoch: 0,
+            disturbed: false,
+            
+            // DOM
+            els: {
+                s1: document.getElementById('state1'),
+                s2: document.getElementById('state2'),
+                s3: document.getElementById('state3'),
+                s4: document.getElementById('state4'),
+                status: document.getElementById('status-bar')
+            },
+
+            setState(s) {
+                this.state = s;
+                Object.values(this.els).forEach(el => {
+                    if (el && el.classList) el.classList.remove('active');
+                });
+                if (this.els[`s${s}`]) {
+                    this.els[`s${s}`].classList.add('active');
+                }
+
+                if (s === 1) {
+                    CanvasEngine.stop();
+                    AudioEngine.stopAll();
+                } else if (s === 2) {
+                    CanvasEngine.start();
+                    AudioEngine.playWaterFlow();
+                    SensorEngine.startMonitoring();
+                    
+                    // 10秒后进入状态三
+                    setTimeout(() => {
+                        if (this.state === 2 && !this.disturbed) {
+                            this.setState(3);
+                            AudioEngine.fadeWaterFlow();
+                        }
+                    }, 10000);
+                }
+            },
+            
+            triggerDisturb() {
+                if (this.state === 1 || this.state === 4 || this.disturbed) return;
+                this.disturbed = true;
+                AudioEngine.playShatter();
+                RTC.send({ type: 'DISTURBED' });
+                this.setState(1);
+                this.els.status.innerText = "水镜破碎，请重新对齐";
+                setTimeout(() => { this.disturbed = false; }, 2000);
+            }
+        };
+
+        /**
+         * Web Audio 物理声学引擎 (零外链资产)
+         */
+        const AudioEngine = {
+            ctx: null,
+            waterNode: null,
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            // 粉红噪声发生器
+            createPinkNoise() {
+                const bufferSize = this.ctx.sampleRate * 2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179;
+                    b1 = 0.99332 * b1 + white * 0.0750759;
+                    b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856;
+                    b4 = 0.55000 * b4 + white * 0.5329522;
+                    b5 = -0.7616 * b5 - white * 0.0168980;
+                    output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                    output[i] *= 0.11; // 降低增益
+                    b6 = white * 0.115926;
+                }
+                return buffer;
+            },
+            playWaterFlow() {
+                this.init();
+                if (this.waterNode) this.waterNode.stop();
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.createPinkNoise();
+                noise.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 400; // 沉闷的水流声
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.5, this.ctx.currentTime + 2);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+                
+                this.waterNode = { source: noise, gain: gain };
+            },
+            fadeWaterFlow() {
+                if (this.waterNode) {
+                    this.waterNode.gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 3);
+                }
+            },
+            playDrop() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                
+                // 频率快速下降模拟水滴
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            },
+            playShatter() {
+                this.init();
+                const bufferSize = this.ctx.sampleRate * 0.5;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.05));
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 2000;
+
+                noise.connect(filter);
+                filter.connect(this.ctx.destination);
+                noise.start();
+            },
+            stopAll() {
+                if (this.waterNode) {
+                    this.waterNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+                    this.waterNode.gain.gain.setValueAtTime(this.waterNode.gain.gain.value, this.ctx.currentTime);
+                    this.waterNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    setTimeout(() => { 
+                        if(this.waterNode) this.waterNode.source.stop(); 
+                        this.waterNode = null;
+                    }, 500);
+                }
+            }
+        };
+
+        /**
+         * Canvas 物理波纹引擎
+         */
+        const CanvasEngine = {
+            canvas: document.getElementById('waterCanvas'),
+            ctx: null,
+            reqId: null,
+            running: false,
+            
+            init() {
+                this.ctx = this.canvas.getContext('2d');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            },
+            resize() {
+                const dpr = window.devicePixelRatio || 1;
+                this.canvas.width = window.innerWidth * dpr;
+                this.canvas.height = window.innerHeight * dpr;
+                this.ctx.scale(dpr, dpr);
+            },
+            start() {
+                if (!this.ctx) this.init();
+                this.running = true;
+                this.draw();
+            },
+            stop() {
+                this.running = false;
+                if (this.reqId) cancelAnimationFrame(this.reqId);
+                if (this.ctx) this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            },
+            draw() {
+                if (!this.running) return;
+                
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                this.ctx.clearRect(0, 0, w, h);
+                
+                const t = (Date.now() - App.epoch) / 1000;
+                
+                // 波纹参数
+                const waves = [
+                    { A: 15, w: 0.02, k: 2, p: 0 },
+                    { A: 10, w: 0.03, k: 3, p: 1 },
+                    { A: 5, w: 0.05, k: 4, p: 2 }
+                ];
+                
+                this.ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+                this.ctx.beginPath();
+                
+                // 根据角色决定波纹是从左边缘还是右边缘生成
+                // Host 设为右边缘，Guest 设为左边缘
+                const isRightEdge = App.isHost;
+                
+                if (isRightEdge) {
+                    this.ctx.moveTo(w, 0);
+                    for (let y = 0; y <= h; y += 5) {
+                        let x = w - 80; // 基础宽度
+                        waves.forEach(wave => {
+                            x -= wave.A * Math.sin(wave.w * y + wave.k * t + wave.p);
+                        });
+                        this.ctx.lineTo(x, y);
+                    }
+                    this.ctx.lineTo(w, h);
+                } else {
+                    this.ctx.moveTo(0, 0);
+                    for (let y = 0; y <= h; y += 5) {
+                        let x = 80; // 基础宽度
+                        waves.forEach(wave => {
+                            x += wave.A * Math.sin(wave.w * y + wave.k * t + wave.p);
+                        });
+                        this.ctx.lineTo(x, y);
+                    }
+                    this.ctx.lineTo(0, h);
+                }
+                
+                this.ctx.fill();
+                
+                // 绘制高光线
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+
+                this.reqId = requestAnimationFrame(() => this.draw());
+            }
+        };
+
+        /**
+         * 传感器与环境管理器
+         */
+        const SensorEngine = {
+            baseBeta: null,
+            baseGamma: null,
+            wakeLock: null,
+            
+            async requestPermissions() {
+                // iOS 13+ 权限申请
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    try {
+                        const permission = await DeviceOrientationEvent.requestPermission();
+                        if (permission !== 'granted') console.warn('Orientation permission denied');
+                    } catch(e) { console.error(e); }
+                }
+                
+                // 唤醒 Web Audio
+                AudioEngine.init();
+                
+                // 申请息屏锁
+                this.requestWakeLock();
+            },
+            async requestWakeLock() {
+                if ('wakeLock' in navigator) {
+                    try {
+                        this.wakeLock = await navigator.wakeLock.request('screen');
+                    } catch (err) {
+                        console.error('Wake Lock error:', err);
+                    }
+                }
+            },
+            startMonitoring() {
+                this.baseBeta = null;
+                this.baseGamma = null;
+                window.addEventListener('deviceorientation', this.handleOrientation);
+                document.addEventListener('visibilitychange', this.handleVisibility);
+            },
+            stopMonitoring() {
+                window.removeEventListener('deviceorientation', this.handleOrientation);
+                document.removeEventListener('visibilitychange', this.handleVisibility);
+                if (this.wakeLock) {
+                    this.wakeLock.release().then(() => this.wakeLock = null);
+                }
+            },
+            handleOrientation = (e) => {
+                if (App.state !== 2 && App.state !== 3) return;
+                
+                if (this.baseBeta === null) {
+                    this.baseBeta = e.beta;
+                    this.baseGamma = e.gamma;
+                    return;
+                }
+                
+                const dBeta = Math.abs(e.beta - this.baseBeta);
+                const dGamma = Math.abs(e.gamma - this.baseGamma);
+                
+                if (dBeta > 15 || dGamma > 15) {
+                    App.triggerDisturb();
+                }
+            },
+            handleVisibility = () => {
+                if (document.visibilityState === 'hidden') {
+                    if (App.state === 2 || App.state === 3) {
+                        App.triggerDisturb();
+                    }
+                } else {
+                    this.requestWakeLock();
+                }
+            }
+        };
+
+        /**
+         * WebRTC 零账号通信 (PeerJS)
+         */
+        const RTC = {
+            peer: null,
+            conn: null,
+            roomId: '',
+            connected: false,
+            localSliding: false,
+            remoteSliding: false,
+
+            init() {
+                let hash = location.hash.replace('#room=', '');
+                if (!hash) {
+                    hash = Math.random().toString(36).substring(2, 8);
+                    location.hash = '#room=' + hash;
+                }
+                this.roomId = hash;
+                const hostId = `mirror-p-${hash}-h`;
+                const guestId = `mirror-p-${hash}-g`;
+
+                // 尝试作为 Host
+                this.peer = new Peer(hostId);
+                
+                this.peer.on('open', (id) => {
+                    App.isHost = true;
+                    App.els.status.innerText = `房间: ${hash} | 等待伴侣加入...`;
+                    
+                    this.peer.on('connection', (c) => {
+                        this.conn = c;
+                        this.setupConnection();
+                    });
+                });
+
+                this.peer.on('error', (err) => {
+                    if (err.type === 'unavailable-id') {
+                        // Host 存在，作为 Guest 登录
+                        this.peer.destroy();
+                        this.peer = new Peer(guestId);
+                        this.peer.on('open', () => {
+                            App.isHost = false;
+                            this.conn = this.peer.connect(hostId, { reliable: true });
+                            this.setupConnection();
+                        });
+                    }
+                });
+            },
+            setupConnection() {
+                this.conn.on('open', () => {
+                    this.connected = true;
+                    App.els.status.innerText = "已连接，请滑动下方圆点";
+                    
+                    // Host 生成共同时间戳
+                    if (App.isHost) {
+                        App.epoch = Date.now();
+                        this.send({ type: 'SYNC', epoch: App.epoch });
+                    }
+                });
+                
+                this.conn.on('data', (data) => {
+                    if (data.type === 'SYNC') {
+                        App.epoch = data.epoch;
+                    }
+                    if (data.type === 'SLIDING') {
+                        this.remoteSliding = data.state;
+                        this.checkSyncSlide();
+                    }
+                    if (data.type === 'DISTURBED') {
+                        if(App.state === 2 || App.state === 3) App.triggerDisturb();
+                    }
+                    if (data.type === 'HOLD_PROGRESS') {
+                        // 这里可以做双方进度融合的复杂动画，为简单起见，这里假设各自完成
+                    }
+                    if (data.type === 'SYNC_STATE_4') {
+                        App.setState(4);
+                    }
+                });
+                
+                this.conn.on('close', () => {
+                    this.connected = false;
+                    App.els.status.innerText = "连接断开";
+                    if(App.state !== 1) App.triggerDisturb();
+                });
+            },
+            send(data) {
+                if (this.connected && this.conn) {
+                    this.conn.send(data);
+                }
+            },
+            setLocalSliding(state) {
+                this.localSliding = state;
+                this.send({ type: 'SLIDING', state: state });
+                this.checkSyncSlide();
+            },
+            checkSyncSlide() {
+                if (this.localSliding && this.remoteSliding && App.state === 1) {
+                    App.els.status.innerText = "融合...";
+                    AudioEngine.playDrop();
+                    // 稍微延迟确保两端都准备好
+                    setTimeout(() => App.setState(2), 200);
+                }
+            }
+        };
+
+        /**
+         * UI 交互逻辑
+         */
+        function initUI() {
+            // 滑块逻辑 (状态一)
+            const sliderBox = document.getElementById('alignSliderBox');
+            const thumb = document.getElementById('sliderThumb');
+            let isDragging = false;
+
+            // 根据是否是 Host 决定滑块在左边还是右边
+            // Host (右边缘水波) -> 滑块靠右滑动
+            // Guest (左边缘水波) -> 滑块靠左滑动
+            setTimeout(() => {
+                thumb.style.left = App.isHost ? '0px' : '160px';
+            }, 1000);
+
+            thumb.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                SensorEngine.requestPermissions(); // 触发权限
+            });
+            
+            window.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                const rect = sliderBox.getBoundingClientRect();
+                let x = e.clientX - rect.left - 20;
+                x = Math.max(0, Math.min(x, 160));
+                thumb.style.left = x + 'px';
+                
+                // 判断是否到达边缘
+                const target = App.isHost ? 160 : 0;
+                if (Math.abs(x - target) < 10) {
+                    if (!RTC.localSliding) RTC.setLocalSliding(true);
+                } else {
+                    if (RTC.localSliding) RTC.setLocalSliding(false);
+                }
+            });
+            
+            window.addEventListener('pointerup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    RTC.setLocalSliding(false);
+                    thumb.style.left = App.isHost ? '0px' : '160px';
+                }
+            });
+
+            // 长按确认逻辑 (状态三)
+            const holdBtn = document.getElementById('holdBtn');
+            const ringCircle = document.querySelector('.hold-ring circle');
+            let holdTimer = null;
+            let progress = 0;
+
+            const updateRing = (pct) => {
+                const offset = 239 - (239 * pct / 100);
+                ringCircle.style.strokeDashoffset = offset;
+            };
+
+            const startHold = () => {
+                if (App.state !== 3) return;
+                progress = 0;
+                holdTimer = setInterval(() => {
+                    progress += 2; // 50 * 20ms = 1000ms. 目标是3秒，所以进度要慢点。
+                    // 修正为 3 秒长按
+                    // 3000ms / 20ms = 150步. 100% / 150 = 0.66%
+                    progress = Math.min(100, progress + 0.66);
+                    updateRing(progress);
+                    
+                    if (progress >= 100) {
+                        clearInterval(holdTimer);
+                        if ('vibrate' in navigator) navigator.vibrate(50);
+                        RTC.send({ type: 'SYNC_STATE_4' });
+                        App.setState(4);
+                    }
+                }, 20);
+            };
+
+            const stopHold = () => {
+                clearInterval(holdTimer);
+                progress = 0;
+                updateRing(0);
+            };
+
+            holdBtn.addEventListener('pointerdown', startHold);
+            holdBtn.addEventListener('pointerup', stopHold);
+            holdBtn.addEventListener('pointerleave', stopHold);
+            
+            // 保存凭证逻辑 (状态四)
+            document.getElementById('saveBtn').addEventListener('click', generateCertificate);
+        }
+
+        /**
+         * 本地凭证渲染生成
+         */
+        function generateCertificate() {
+            const canvas = document.getElementById('renderCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 绘制背景
+            ctx.fillStyle = '#0d0f12';
+            ctx.fillRect(0, 0, 1080, 1920);
+            
+            // 绘制水波光晕装饰
+            const grad = ctx.createRadialGradient(540, 500, 50, 540, 500, 400);
+            grad.addColorStop(0, 'rgba(56, 189, 248, 0.15)');
+            grad.addColorStop(1, 'rgba(13, 15, 18, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 1080, 1920);
+            
+            // 绘制徽记
+            ctx.beginPath();
+            ctx.arc(540, 500, 60, 0, Math.PI * 2);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // 绘制文字
+            ctx.fillStyle = '#e2e8f0';
+            ctx.textAlign = 'center';
+            ctx.font = '50px Noto Serif SC, serif';
+            ctx.fillText('水 镜 探 源', 540, 750);
+            
+            ctx.font = '36px Noto Serif SC, serif';
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.8)';
+            const text = "允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。";
+            
+            // 简易文字换行
+            let line = '';
+            let y = 950;
+            for (let i = 0; i < text.length; i++) {
+                line += text[i];
+                if (line.length > 18) {
+                    ctx.fillText(line, 540, y);
+                    line = '';
+                    y += 70;
+                }
+            }
+            if(line) ctx.fillText(line, 540, y);
+            
+            // 底部日期印记
+            ctx.font = '30px Noto Serif SC, serif';
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
+            const date = new Date();
+            ctx.fillText(`这一刻，我们在真实中相见 · ${date.getFullYear()}.${date.getMonth()+1}.${date.getDate()}`, 540, 1700);
+            
+            // 导出并下载
+            const link = document.createElement('a');
+            link.download = 'mirror-phase-seal.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // 调试模式 (双击主标题激活，用于无网络单设备体验)
+        const DEV_MODE = {
+            simulateConnection() {
+                if (App.state !== 1) return;
+                console.log("Dev Mode Triggered");
+                RTC.localSliding = true;
+                RTC.remoteSliding = true;
+                App.isHost = true;
+                App.epoch = Date.now();
+                SensorEngine.requestPermissions();
+                RTC.checkSyncSlide();
+                App.els.status.innerText = "单机模拟模式";
+            }
+        };
+
+        // 启动应用
+        window.addEventListener('DOMContentLoaded', () => {
+            RTC.init();
+            initUI();
+        });
+        
+        // 离开清理
+        window.addEventListener('beforeunload', () => {
+            location.hash = '';
+        });
+
+    </script>
+</body>
+</html>
