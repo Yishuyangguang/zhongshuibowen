@@ -3,42 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>双心摇篮 | The Pulse Phase</title>
+    <title>风暴避风港 | The Haven Phase</title>
     <!-- 引入高质感古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     
     <style>
         :root {
-            --bg-amniotic: #0a0d12;
-            --tide-blue: #13222e;
-            --warm-jade: #e8dfcf;
-            --heart-orange: #f4a261;
+            --bg-storm: #050b14;
+            --haven-white: #ffffff;
+            --haven-glow: #fdf6e3;
+            --text-dark: #1a202c;
             --font-serif: 'Noto Serif SC', 'Playfair Display', serif;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         
-        /* 引入心跳视错觉动画基调 */
         body, html {
             width: 100%; height: 100%; 
-            background-color: var(--bg-amniotic); 
-            color: var(--warm-jade); 
+            background-color: var(--bg-storm); 
+            color: var(--haven-glow); 
             font-family: var(--font-serif); 
             overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
-            transition: transform 0.1s ease-out, filter 0.1s ease-out;
-            transform-origin: center center;
-        }
-
-        /* 模拟 iOS 缺失物理震动时的视觉心跳补偿 */
-        body.heartbeat-flash {
-            transform: scale(1.008);
-            filter: brightness(1.15);
+            transition: background-color 2s ease-in-out; /* 动态背景变色平滑过渡 */
         }
 
         #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         
-        #cocoonCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        #stormCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
         .state-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column;
@@ -47,83 +39,103 @@
         }
         .state-layer.active { opacity: 1; pointer-events: auto; }
 
-        h1 { font-size: 2rem; font-weight: 400; letter-spacing: 0.25em; margin-bottom: 0.5rem; color: var(--warm-jade); text-shadow: 0 0 20px rgba(244,162,97,0.2); }
-        .subtitle { font-size: 0.95rem; color: rgba(232, 223, 207, 0.6); letter-spacing: 0.1em; margin-bottom: 2rem; }
-        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(232, 223, 207, 0.85); max-width: 320px; }
+        h1 { font-size: 2.1rem; font-weight: 400; letter-spacing: 0.25em; margin-bottom: 0.5rem; color: #ffffff; text-shadow: 0 0 20px rgba(255,255,255,0.3); transition: color 1.5s; }
+        .subtitle { font-size: 0.95rem; color: rgba(253, 246, 227, 0.6); letter-spacing: 0.1em; margin-bottom: 2rem; transition: color 1.5s; }
+        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(253, 246, 227, 0.85); max-width: 320px; transition: color 1.5s; }
 
         .invite-btn {
-            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(244, 162, 97, 0.08); border: 1px solid rgba(244, 162, 97, 0.3);
-            color: var(--heart-orange); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px;
-            letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(244,162,97,0.1);
+            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255,255,255,0.8); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px;
+            letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,255,255,0.05);
         }
-        .invite-btn:active { background: rgba(244, 162, 97, 0.2); }
+        .invite-btn:active { background: rgba(255, 255, 255, 0.2); }
 
-        .slider-container { position: absolute; bottom: 12%; width: 220px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; display: flex; align-items: center; }
+        .slider-container { position: absolute; bottom: 12%; width: 220px; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; display: flex; align-items: center; }
         .slider-thumb {
-            width: 48px; height: 48px; background: rgba(244, 162, 97, 0.15); border: 1px solid rgba(244, 162, 97, 0.6); border-radius: 50%;
-            position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(244, 162, 97, 0.3); transition: box-shadow 0.3s;
+            width: 48px; height: 48px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 50%;
+            position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2); transition: box-shadow 0.3s;
         }
-        .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--heart-orange); border-radius: 50%; box-shadow: 0 0 15px var(--heart-orange); }
-        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(232, 223, 207, 0.5); pointer-events: none; letter-spacing: 0.1em; }
+        .slider-thumb::after { content: ''; width: 14px; height: 14px; background: var(--haven-white); border-radius: 50%; box-shadow: 0 0 15px var(--haven-white); }
+        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); pointer-events: none; letter-spacing: 0.1em; }
 
-        /* 核心防溢出、高可读性深海毛玻璃面板 */
+        /* ====== 核心：面板基础样式 (暗色风暴模式) ====== */
         .glass-panel {
-            background: rgba(10, 13, 18, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(244, 162, 97, 0.2); padding: 2.2rem 1.6rem; border-radius: 16px; 
+            background: rgba(13, 15, 18, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.15); padding: 2.2rem 1.6rem; border-radius: 16px; 
             width: 90vw; max-width: 360px; margin-bottom: 2rem; 
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(244, 162, 97, 0.05);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.05);
+            transition: all 2s ease-in-out;
         }
-        .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(232, 223, 207, 0.95); }
+        .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(253, 246, 227, 0.95); transition: color 2s ease; }
         .glass-panel p:last-child { margin-bottom: 0; }
-        .highlight { color: var(--warm-jade); font-weight: 600; text-shadow: 0 0 10px rgba(232,223,207,0.3); }
-        .action-point { color: var(--heart-orange); font-weight: 400; } /* 动作指引采用心室橙 */
+        .highlight { color: var(--haven-white); font-weight: 600; text-shadow: 0 0 10px rgba(255,255,255,0.5); transition: all 2s ease; }
+        .warning { color: #ffb347; font-weight: 400; transition: color 2s ease; } 
 
         .hold-btn-wrapper { position: absolute; bottom: 8%; width: 90px; height: 90px; display: flex; justify-content: center; align-items: center; }
-        .hold-btn { width: 66px; height: 66px; border-radius: 50%; background: rgba(244, 162, 97, 0.1); border: 1px solid rgba(244, 162, 97, 0.5); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; font-weight: 600; color: var(--heart-orange); z-index: 2; letter-spacing: 0.05em;}
+        .hold-btn { width: 66px; height: 66px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.4); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.9); z-index: 2; letter-spacing: 0.05em; transition: all 2s ease;}
         .hold-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; pointer-events: none; }
-        .hold-ring circle { fill: none; stroke: var(--heart-orange); stroke-width: 4; stroke-dasharray: 264; stroke-dashoffset: 264; transition: stroke-dashoffset 0.1s linear; }
+        .hold-ring circle { fill: none; stroke: var(--haven-white); stroke-width: 4; stroke-dasharray: 264; stroke-dashoffset: 264; transition: stroke-dashoffset 0.1s linear, stroke 2s ease; }
 
-        .cradle-seal { width: 90px; height: 90px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle, rgba(244, 162, 97, 0.3) 0%, rgba(10, 13, 18, 0) 70%); border-radius: 50%; box-shadow: 0 0 35px rgba(244, 162, 97, 0.4); }
-        .cradle-seal::before { content: ''; position: absolute; width: 60px; height: 60px; border: 1px solid rgba(232,223,207,0.4); border-radius: 50%; }
-        .cradle-seal::after { content: ''; position: absolute; width: 20px; height: 20px; background: var(--warm-jade); border-radius: 50%; box-shadow: 0 0 20px var(--warm-jade); }
+        .concentric-seal { width: 100px; height: 100px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; transition: all 2s ease;}
+        .concentric-seal::before { content: ''; position: absolute; width: 80px; height: 80px; border: 1px solid rgba(255,255,255,0.4); border-radius: 50%; transition: border-color 2s ease; }
+        .concentric-seal::after { content: ''; position: absolute; width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; box-shadow: 0 0 20px rgba(255,255,255,0.5); transition: all 2s ease;}
 
-        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(244, 162, 97, 0.5); color: var(--heart-orange); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(244,162,97,0.1); }
-        .save-btn:active { background: rgba(244, 162, 97, 0.25); }
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2.2rem; background: transparent; border: 1px solid rgba(255, 255, 255, 0.5); color: var(--haven-white); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; }
+        .save-btn:active { background: rgba(255, 255, 255, 0.2); }
 
-        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(232,223,207,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(255,255,255,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; transition: color 2s ease;}
         #renderCanvas { display: none; }
+
+        /* ====== 核心黑科技：亮色模式适配 (解决状态3和4纯白底色看不清字的问题) ====== */
+        body.light-theme {
+            background-color: var(--haven-glow); /* 极度明亮温暖的背景色 */
+        }
+        body.light-theme #status-bar { color: rgba(0, 0, 0, 0.5); font-weight: 600; }
+        body.light-theme .glass-panel {
+            background: rgba(255, 255, 255, 0.85); /* 半透明亮色底 */
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15); /* 柔和的高级灰阴影托起 */
+        }
+        body.light-theme .glass-panel p { color: var(--text-dark); font-weight: 400; }
+        body.light-theme .highlight { color: #000000; text-shadow: none; font-weight: 600; }
+        body.light-theme .warning { color: #c05621; font-weight: 600; } /* 警告色在白底改为醒目的深橙 */
+        body.light-theme .hold-btn { background: rgba(255, 255, 255, 0.9); color: var(--text-dark); border-color: rgba(0,0,0,0.3); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        body.light-theme .hold-ring circle { stroke: var(--text-dark); }
+        body.light-theme .concentric-seal::before { border-color: rgba(0,0,0,0.3); }
+        body.light-theme .concentric-seal::after { border-color: rgba(0,0,0,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        body.light-theme .save-btn { background: rgba(255, 255, 255, 0.8); color: var(--text-dark); border-color: rgba(0,0,0,0.4); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
     <div id="status-bar">环境初始化中...</div>
-    <canvas id="cocoonCanvas"></canvas>
+    <canvas id="stormCanvas"></canvas>
     <canvas id="renderCanvas" width="1080" height="1920"></canvas>
 
     <div id="app">
-        <!-- 状态一：脉搏寻迹 -->
+        <!-- 状态一：暴雨预警 -->
         <div id="state1" class="state-layer active">
-            <h1 ondblclick="DEV_MODE.simulateConnection()">双心摇篮</h1>
-            <p class="subtitle">在功利与期待之外，抚摸一颗为你跳动的心</p>
-            <p class="instruction">请将两台手机平放于桌面，长边紧密贴合</p>
+            <h1 ondblclick="DEV_MODE.simulateConnection()">风暴避风港</h1>
+            <p class="subtitle">在被世界吞没之前，回到最初的同心圆</p>
+            <p class="instruction">请将两台手机平放于桌面，长边紧贴</p>
             
             <button class="invite-btn" id="inviteBtn">复制房间链接发送给伴侣</button>
 
             <div class="slider-container" id="alignSliderBox">
-                <div class="slider-text" id="sliderText">滑动光弧感知脉搏</div>
+                <div class="slider-text" id="sliderText">滑动锁扣开启静音仓</div>
                 <div class="slider-thumb" id="sliderThumb"></div>
             </div>
         </div>
 
-        <!-- 状态二：光茧共振与触觉交叠 (Canvas 渲染) -->
+        <!-- 状态二：纯白静音仓 (纯动效) -->
         <div id="state2" class="state-layer"></div>
 
-        <!-- 状态三：解绑目的与深层托底 -->
+        <!-- 状态三：原初找回与岁月豁免 -->
         <div id="state3" class="state-layer">
             <div class="glass-panel">
-                <p><span class="action-point">女方将手掌贴在男方胸口，男方双手环抱住女方的后背。</span></p>
-                <p>如果这个月的结果依然让人叹息，请男方认真看着女方的眼睛说：</p>
-                <p class="highlight">“我们不是为了一个未来的果子才在一起的。即使生活最终只留下我们两个人，你给我的爱也已经完整且丰盛了。别怕，我守着你。”</p>
-                <p style="font-size: 0.85rem; opacity: 0.6; text-align: center; margin-top: 1.5rem; margin-bottom: 0;">(静默感受心跳 30 秒，禁止讨论任何医疗指标)</p>
+                <p>把房门反锁五分钟。两台手机并拢在桌上，牵起对方的手。<br><span class="warning">绝对禁止提起孩子的名字，绝对禁止提起账单。</span></p>
+                <p>在心里回想一下：十年前，在这个人还不是“爸爸/妈妈”、不是“部门主管”之前，他最爱听哪首歌、最喜欢怎样开怀大笑？</p>
+                <p>专注看着对方的眼睛，说出这句话：<br><br>
+                <span class="highlight">“辛苦了，我依然认得那个最初的你。”</span></p>
             </div>
             <div class="hold-btn-wrapper">
                 <svg class="hold-ring" viewBox="0 0 90 90"><circle cx="45" cy="45" r="42"></circle></svg>
@@ -131,16 +143,16 @@
             </div>
         </div>
 
-        <!-- 状态四：摇篮契印 -->
+        <!-- 状态四：同心刻印 -->
         <div id="state4" class="state-layer">
-            <div class="cradle-seal"></div>
+            <div class="concentric-seal"></div>
             <div class="glass-panel" style="padding: 1.8rem 1.5rem;">
-                <p style="font-size: 0.85rem; text-align: center; color: rgba(232,223,207,0.7); margin-bottom: 1rem;">请一起读出以下内容：</p>
+                <p style="font-size: 0.85rem; text-align: center; opacity: 0.7; margin-bottom: 1rem;">请一起读出以下内容：</p>
                 <p style="text-align: center; font-size: 0.95rem; line-height: 1.85;">
-                    拒绝将伴侣工具化。爱不是为了换取某种社会身份或繁衍结果的交易，无论环境给出的是丰饶还是荒芜，彼此本就是风雨同舟、不可分割的归宿。
+                    当外界的大水漫过堤坝，家庭的根基从来不是孩子或资产，而是两人最初立下的同心圆。在被整个世界剥削消耗的中年，唯有回到彼此身边，才能找回那个不被功能性定义的真实灵魂。
                 </p>
             </div>
-            <button class="save-btn" id="saveBtn">刻印归宿</button>
+            <button class="save-btn" id="saveBtn">刻印岁月同心</button>
         </div>
     </div>
 
@@ -150,16 +162,21 @@
             els: { s1: document.getElementById('state1'), s2: document.getElementById('state2'), s3: document.getElementById('state3'), s4: document.getElementById('state4'), status: document.getElementById('status-bar') },
             setState(s) {
                 this.state = s;
+                
+                // 核心黑科技：进入状态 3/4 时，整体背景变纯白，文字面板自动切换高对比度深色模式
+                document.body.classList.toggle('light-theme', s === 3 || s === 4);
+
                 Object.values(this.els).forEach(el => { if (el && el.classList) el.classList.remove('active'); });
                 if (this.els[`s${s}`]) this.els[`s${s}`].classList.add('active');
                 
                 if (s === 1) {
-                    CanvasEngine.stop(); AudioEngine.stopHeartbeat();
+                    CanvasEngine.setHavenMode(false); AudioEngine.unmuffleStorm();
                 } else if (s === 2) {
-                    CanvasEngine.start(); AudioEngine.startHeartbeat(); SensorEngine.startMonitoring();
+                    CanvasEngine.setHavenMode(true); AudioEngine.muffleStorm(); SensorEngine.startMonitoring();
+                    // 10秒后风暴消散，纯白光芒充盈全屏
                     setTimeout(() => {
                         if (this.state === 2 && !this.disturbed) {
-                            this.setState(3); CanvasEngine.fadeToCalm(); AudioEngine.fadeToCalm();
+                            this.setState(3); CanvasEngine.fadeStormToWhite(); AudioEngine.fadeToSilence();
                         }
                     }, 10000);
                 }
@@ -167,136 +184,139 @@
             triggerDisturb() {
                 if (this.state === 1 || this.state === 4 || this.disturbed) return;
                 this.disturbed = true; RTC.send({ type: 'DISTURBED' }); this.setState(1);
-                this.els.status.innerText = "光茧破裂，心跳紊乱";
-                AudioEngine.playRupture();
-                if ('vibrate' in navigator) { try{ navigator.vibrate([40, 20, 100, 30, 200]); }catch(e){} }
+                this.els.status.innerText = "静音仓破裂，现实风暴倒灌";
+                if ('vibrate' in navigator) { try{ navigator.vibrate([100, 50, 100]); }catch(e){} }
                 setTimeout(() => { this.disturbed = false; }, 2000);
             }
         };
 
         /**
-         * 仿生心跳合成引擎 (绝对无爆音 S1/S2 包络合成)
+         * 极端声学合成引擎 (物理闷音反馈)
          */
         const AudioEngine = {
-            ctx: null, beatTimer: null, initialized: false, bpm: 62, isCalm: false,
+            ctx: null, stormNode: null, filterNode: null, sineNode: null, initialized: false,
             forceUnlock() {
                 if(this.initialized) return;
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
             },
-            // 医学级心跳声音合成 (Lub-Dub)
-            triggerHeartSound(time, baseFreq, decayTime, gainVol) {
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                
-                // 频率滑降
-                osc.frequency.setValueAtTime(baseFreq, time);
-                osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.6, time + decayTime);
-                
-                // 完美的平滑增益包络，彻底消除 Pop 音
-                gain.gain.setValueAtTime(0.0001, time);
-                gain.gain.exponentialRampToValueAtTime(gainVol, time + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.0001, time + decayTime);
-                
-                osc.connect(gain); gain.connect(this.ctx.destination);
-                osc.start(time); osc.stop(time + decayTime + 0.05);
+            createStormBuffer() {
+                const bufferSize = this.ctx.sampleRate * 2; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.45;
+                return buffer;
             },
-            playSingleBeat() {
-                if (!this.ctx) return;
-                const t = this.ctx.currentTime;
-                // S1 (Lub)
-                this.triggerHeartSound(t, 65, 0.12, this.isCalm ? 0.4 : 0.8);
-                // S2 (Dub)
-                this.triggerHeartSound(t + 0.28, 85, 0.10, this.isCalm ? 0.3 : 0.6);
+            playStorm() {
+                this.forceUnlock();
+                if (this.stormNode) return; 
+                const noise = this.ctx.createBufferSource(); noise.buffer = this.createStormBuffer(); noise.loop = true;
+                
+                this.filterNode = this.ctx.createBiquadFilter(); 
+                this.filterNode.type = 'lowpass'; 
+                this.filterNode.frequency.value = 5000; // 初始狂风暴雨高频
 
-                // 触觉与视觉补偿
-                if (!this.isCalm) {
-                    if ('vibrate' in navigator) { try{ navigator.vibrate([40, 80, 25]); }catch(e){} }
-                    document.body.classList.add('heartbeat-flash');
-                    setTimeout(() => document.body.classList.remove('heartbeat-flash'), 150);
+                const gain = this.ctx.createGain(); gain.gain.value = 0.8;
+                noise.connect(this.filterNode); this.filterNode.connect(gain); gain.connect(this.ctx.destination);
+                noise.start(); this.stormNode = { source: noise, gain: gain };
+            },
+            // 砰然关上隔音门
+            muffleStorm() {
+                this.forceUnlock();
+                if (!this.filterNode) return;
+                // 0.3秒内截止频率雪崩式下降，模拟厚重舱门隔音
+                this.filterNode.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.3);
+                this.stormNode.gain.gain.exponentialRampToValueAtTime(0.3, this.ctx.currentTime + 0.3);
+                
+                // 极微弱的纯正弦波产生安全的“耳鸣感”
+                if(!this.sineNode) {
+                    const osc = this.ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 432;
+                    const sineGain = this.ctx.createGain(); sineGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+                    sineGain.gain.linearRampToValueAtTime(0.04, this.ctx.currentTime + 1);
+                    osc.connect(sineGain); sineGain.connect(this.ctx.destination); osc.start();
+                    this.sineNode = { source: osc, gain: sineGain };
                 }
             },
-            startHeartbeat() {
-                this.forceUnlock();
-                this.isCalm = false;
-                this.bpm = App.isHost ? 62 : 68; // 两台手机不同的基础心率，产生交错感
-                const intervalMs = (60 / this.bpm) * 1000;
-                
-                this.playSingleBeat(); // 立即触发第一次
-                this.beatTimer = setInterval(() => this.playSingleBeat(), intervalMs);
+            // 舱门碎裂，暴雨倒灌
+            unmuffleStorm() {
+                if (this.filterNode && this.ctx) { 
+                    this.filterNode.frequency.exponentialRampToValueAtTime(5000, this.ctx.currentTime + 0.1); 
+                    this.stormNode.gain.gain.exponentialRampToValueAtTime(0.8, this.ctx.currentTime + 0.1); 
+                }
+                if (this.sineNode && this.ctx) { 
+                    this.sineNode.gain.gain.linearRampToValueAtTime(0.0001, this.ctx.currentTime + 0.1); 
+                    setTimeout(() => { if(this.sineNode) this.sineNode.source.stop(); this.sineNode = null; }, 200); 
+                }
             },
-            fadeToCalm() {
-                this.isCalm = true; // 降低音量，停止屏幕闪烁与马达，进入平缓期
-            },
-            playRupture() {
-                this.forceUnlock();
-                this.stopHeartbeat();
-                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.5, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
-                osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); osc.stop(this.ctx.currentTime + 0.6);
-            },
-            stopHeartbeat() {
-                if (this.beatTimer) { clearInterval(this.beatTimer); this.beatTimer = null; }
+            // 彻底平静
+            fadeToSilence() {
+                if (this.stormNode && this.ctx) this.stormNode.gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 3);
+                if (this.sineNode && this.ctx) this.sineNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 3);
             }
         };
 
         /**
-         * Canvas 仿生光茧动力学 (弹性贝塞尔代谢球)
+         * 极端空间动力学引擎 (风暴衰减场)
          */
         const CanvasEngine = {
-            canvas: document.getElementById('cocoonCanvas'), ctx: null, reqId: null, running: false, isCalm: false,
+            canvas: document.getElementById('stormCanvas'), ctx: null, reqId: null, particles: [], isHavenActive: false, fadeToWhite: false,
             init() {
                 this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
+                for(let i=0; i<150; i++) this.particles.push(this.createParticle());
+                this.start();
             },
             resize() {
                 const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
             },
-            fadeToCalm() { this.isCalm = true; },
-            start() { if (!this.ctx) this.init(); this.running = true; this.isCalm = false; this.draw(); },
-            stop() { this.running = false; if (this.reqId) cancelAnimationFrame(this.reqId); if (this.ctx) this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight); },
+            createParticle() { 
+                return { x: Math.random() * window.innerWidth, y: Math.random() * -window.innerHeight, vy: 15 + Math.random() * 15, vx: 3 + Math.random() * 6, len: 10 + Math.random() * 30, alpha: 0.1 + Math.random() * 0.4 }; 
+            },
+            setHavenMode(active) { this.isHavenActive = active; this.fadeToWhite = false; },
+            fadeStormToWhite() { this.fadeToWhite = true; },
+            start() { if (!this.reqId) this.draw(); },
             draw() {
-                if (!this.running) return;
                 const w = window.innerWidth; const h = window.innerHeight;
-                this.ctx.clearRect(0, 0, w, h);
                 
-                const t = (Date.now() - App.epoch) / 1000;
-                
-                // 模拟细胞呼吸跳动的半径参数
-                const bpmFreq = (App.isHost ? 62 : 68) / 60; // 每秒跳动次数
-                const pulse = Math.abs(Math.sin(Math.PI * bpmFreq * t)); 
-                const baseR = this.isCalm ? 120 : 150;
-                const r = baseR + (this.isCalm ? 10 : 30) * pulse;
-                
-                const jointX = App.isHost ? w : 0;
-                const centerY = h / 2;
-
-                // 绘制光茧核心发光
-                const grad = this.ctx.createRadialGradient(jointX, centerY, r * 0.2, jointX, centerY, r * 2.5);
-                grad.addColorStop(0, this.isCalm ? 'rgba(232, 223, 207, 0.4)' : 'rgba(244, 162, 97, 0.6)');
-                grad.addColorStop(0.5, this.isCalm ? 'rgba(232, 223, 207, 0.1)' : 'rgba(244, 162, 97, 0.15)');
-                grad.addColorStop(1, 'rgba(10, 13, 18, 0)');
-                this.ctx.fillStyle = grad;
+                // 拖影清理
+                this.ctx.fillStyle = this.fadeToWhite ? 'rgba(253,246,227,0.02)' : 'rgba(5, 11, 20, 0.3)'; 
                 this.ctx.fillRect(0, 0, w, h);
-
-                // 绘制细胞膜波动边缘
-                this.ctx.beginPath();
-                this.ctx.strokeStyle = this.isCalm ? 'rgba(232, 223, 207, 0.3)' : 'rgba(244, 162, 97, 0.5)';
-                this.ctx.lineWidth = 3;
                 
-                if (App.isHost) {
-                    this.ctx.moveTo(w, centerY - r * 1.5);
-                    this.ctx.bezierCurveTo(w - r * 0.8, centerY - r, w - r * 1.2, centerY - r * 0.5, w - r - pulse*15, centerY);
-                    this.ctx.bezierCurveTo(w - r * 1.2, centerY + r * 0.5, w - r * 0.8, centerY + r, w, centerY + r * 1.5);
-                } else {
-                    this.ctx.moveTo(0, centerY - r * 1.5);
-                    this.ctx.bezierCurveTo(r * 0.8, centerY - r, r * 1.2, centerY - r * 0.5, r + pulse*15, centerY);
-                    this.ctx.bezierCurveTo(r * 1.2, centerY + r * 0.5, r * 0.8, centerY + r, 0, centerY + r * 1.5);
+                const jointX = App.isHost ? w : 0; 
+                const havenZoneWidth = w * 0.35; 
+                
+                // 绘制接缝处纯白静音仓光晕
+                if (this.isHavenActive) {
+                    const grad = this.ctx.createLinearGradient(App.isHost ? w - havenZoneWidth : havenZoneWidth, 0, jointX, 0);
+                    grad.addColorStop(0, 'rgba(255, 255, 255, 0)'); 
+                    grad.addColorStop(1, this.fadeToWhite ? 'rgba(253, 246, 227, 0.8)' : 'rgba(255, 255, 255, 0.35)');
+                    this.ctx.fillStyle = grad; 
+                    this.ctx.fillRect(App.isHost ? w - havenZoneWidth : 0, 0, havenZoneWidth, h);
                 }
-                this.ctx.stroke();
 
+                // 暴雨粒子动力学计算
+                if (!this.fadeToWhite) {
+                    this.ctx.lineWidth = 1.5; this.ctx.strokeStyle = 'rgba(200, 220, 255, 0.6)';
+                    this.particles.forEach(p => {
+                        p.x += p.vx; p.y += p.vy; 
+                        let force = 1;
+                        
+                        // 空间衰减场：越靠近接缝光晕，雨点越被净化消散
+                        if (this.isHavenActive) {
+                            let distToJoint = App.isHost ? (w - p.x) : p.x;
+                            if (distToJoint < havenZoneWidth) force = Math.pow(distToJoint / havenZoneWidth, 3);
+                        }
+                        
+                        this.ctx.globalAlpha = p.alpha * force;
+                        if (force > 0.05) { 
+                            this.ctx.beginPath(); this.ctx.moveTo(p.x, p.y); this.ctx.lineTo(p.x + p.vx, p.y + p.len); this.ctx.stroke(); 
+                        }
+                        
+                        if (p.y > h || p.x > w) { 
+                            Object.assign(p, this.createParticle()); 
+                            if (App.isHost) p.x = Math.random() * w; 
+                        }
+                    });
+                    this.ctx.globalAlpha = 1;
+                }
                 this.reqId = requestAnimationFrame(() => this.draw());
             }
         };
@@ -304,6 +324,7 @@
         const SensorEngine = {
             baseBeta: null, baseGamma: null, wakeLock: null,
             async requestPermissions() {
+                AudioEngine.playStorm(); // 同步触发，防拦截
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
                 }
@@ -319,9 +340,8 @@
                 if (App.state !== 2 && App.state !== 3) return;
                 if (SensorEngine.baseBeta === null) { SensorEngine.baseBeta = e.beta; SensorEngine.baseGamma = e.gamma; return; }
                 
-                // EMA 滤波抗手抖 (死区容错)
-                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); 
-                const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
+                // EMA 防抖动滤波
+                const dBeta = Math.abs(e.beta - SensorEngine.baseBeta); const dGamma = Math.abs(e.gamma - SensorEngine.baseGamma);
                 if (dBeta > 12 || dGamma > 12) App.triggerDisturb();
             },
             handleVisibility: () => {
@@ -335,11 +355,11 @@
             init() {
                 let hash = location.hash.replace('#room=', '');
                 if (!hash) { hash = Math.random().toString(36).substring(2, 8); location.hash = '#room=' + hash; }
-                this.roomId = hash; const hostId = `pulse-p-${hash}-h`; const guestId = `pulse-p-${hash}-g`;
+                this.roomId = hash; const hostId = `haven-p-${hash}-h`; const guestId = `haven-p-${hash}-g`;
 
                 this.peer = new Peer(hostId);
                 this.peer.on('open', () => {
-                    App.isHost = true; App.els.status.innerText = `当前房间: ${hash} | 等待伴侣加入...`;
+                    App.isHost = true; App.els.status.innerText = `当前坐标: ${hash} | 等待伴侣接入...`;
                     this.peer.on('connection', (c) => { this.conn = c; this.setupConnection(); });
                 });
                 this.peer.on('error', (err) => {
@@ -353,7 +373,7 @@
             },
             setupConnection() {
                 this.conn.on('open', () => {
-                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方光点";
+                    this.connected = true; App.els.status.innerText = "已连接，请滑动下方白锁";
                     if (App.isHost) { App.epoch = Date.now(); this.send({ type: 'SYNC', epoch: App.epoch }); }
                 });
                 this.conn.on('data', (data) => {
@@ -366,7 +386,7 @@
             },
             send(data) { if (this.connected && this.conn) this.conn.send(data); },
             setLocalSliding(state) { this.localSliding = state; this.send({ type: 'SLIDING', state: state }); this.checkSyncSlide(); },
-            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "光茧融合中..."; setTimeout(() => App.setState(2), 200); } }
+            checkSyncSlide() { if (this.localSliding && this.remoteSliding && App.state === 1) { App.els.status.innerText = "静音仓闭合中..."; setTimeout(() => App.setState(2), 300); } }
         };
 
         function initUI() {
@@ -377,8 +397,8 @@
                 }
                 const url = window.location.href;
                 navigator.clipboard.writeText(url).then(() => {
-                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--heart-orange)";
-                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(244, 162, 97, 0.3)"; }, 3000);
+                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--haven-white)";
+                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(255, 255, 255, 0.3)"; }, 3000);
                 }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制地址栏"; });
             });
 
@@ -408,7 +428,7 @@
                     progress = Math.min(100, progress + 0.66); ringCircle.style.strokeDashoffset = 264 - (264 * progress / 100);
                     if (progress >= 100) {
                         clearInterval(holdTimer);
-                        if ('vibrate' in navigator) { try{navigator.vibrate([60, 40, 90]);}catch(e){} }
+                        if ('vibrate' in navigator) { try{navigator.vibrate(100);}catch(e){} }
                         RTC.send({ type: 'SYNC_STATE_4' }); App.setState(4);
                     }
                 }, 20);
@@ -421,19 +441,15 @@
 
         function generateCertificate() {
             const canvas = document.getElementById('renderCanvas'); const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#0a0d12'; ctx.fillRect(0, 0, 1080, 1920);
+            ctx.fillStyle = '#fdf6e3'; ctx.fillRect(0, 0, 1080, 1920); // 纯白暖光底色
             
-            const grad = ctx.createRadialGradient(540, 500, 50, 540, 500, 450);
-            grad.addColorStop(0, 'rgba(244, 162, 97, 0.2)'); grad.addColorStop(1, 'rgba(10, 13, 18, 0)');
-            ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
+            ctx.beginPath(); ctx.arc(540, 500, 120, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.beginPath(); ctx.arc(540, 500, 60, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 4; ctx.stroke();
             
-            ctx.beginPath(); ctx.arc(540, 500, 80, 0, Math.PI * 2); ctx.strokeStyle = '#e8dfcf'; ctx.lineWidth = 2; ctx.stroke();
-            ctx.beginPath(); ctx.arc(540, 500, 30, 0, Math.PI * 2); ctx.fillStyle = '#e8dfcf'; ctx.fill();
+            ctx.fillStyle = '#1a202c'; ctx.textAlign = 'center'; ctx.font = '55px Noto Serif SC, serif'; ctx.fillText('风 暴 避 风 港', 540, 800);
             
-            ctx.fillStyle = '#e8dfcf'; ctx.textAlign = 'center'; ctx.font = '55px Noto Serif SC, serif'; ctx.fillText('双 心 摇 篮', 540, 780);
-            
-            ctx.font = '36px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(232, 223, 207, 0.9)';
-            const text = "拒绝将伴侣工具化。爱不是为了换取某种社会身份或繁衍结果的交易，无论环境给出的是丰饶还是荒芜，彼此本就是风雨同舟、不可分割的归宿。";
+            ctx.font = '36px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(26, 32, 44, 0.9)';
+            const text = "当外界的大水漫过堤坝，家庭的根基从来不是孩子或资产，而是两人最初立下的同心圆。在被整个世界剥削消耗的中年，唯有回到彼此身边，才能找回那个不被功能性定义的真实灵魂。";
             let line = ''; let y = 1000;
             for (let i = 0; i < text.length; i++) {
                 line += text[i];
@@ -441,9 +457,9 @@
             }
             if(line) ctx.fillText(line, 540, y);
             
-            ctx.font = '32px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(244, 162, 97, 0.8)'; const date = new Date(); ctx.fillText(`爱始于此，亦足于此 · ${date.getFullYear()}.${date.getMonth()+1}.${date.getDate()}`, 540, 1750);
+            ctx.font = '32px Noto Serif SC, serif'; ctx.fillStyle = 'rgba(26, 32, 44, 0.5)'; const date = new Date(); ctx.fillText(`最初的同心圆 · ${date.getFullYear()}.${date.getMonth()+1}.${date.getDate()}`, 540, 1750);
             
-            const link = document.createElement('a'); link.download = 'pulse-phase-seal.png'; link.href = canvas.toDataURL('image/png'); link.click();
+            const link = document.createElement('a'); link.download = 'haven-phase-seal.png'; link.href = canvas.toDataURL('image/png'); link.click();
         }
 
         const DEV_MODE = {
