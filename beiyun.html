@@ -208,7 +208,7 @@
         };
 
         /**
-         * 仿生心跳合成引擎 (绝对无爆音 S1/S2 包络合成)
+         * 升级为：隔着胸腔与羊水的医学级温润心跳 (消除所有电子刺耳声)
          */
         const AudioEngine = {
             ctx: null, beatTimer: null, initialized: false, bpm: 62, isCalm: false,
@@ -221,23 +221,37 @@
                 if (!this.ctx) return;
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-                osc.type = 'sine';
+                const filter = this.ctx.createBiquadFilter();
                 
+                osc.type = 'sine'; // 使用最纯粹无杂音的正弦波
+                
+                // 频率极速下潜，模拟肌肉收缩的物理拉扯感
                 osc.frequency.setValueAtTime(baseFreq, time);
-                osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.6, time + decayTime);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, time + decayTime);
                 
+                // 完美的圆润包络，0.03秒的缓和上升，彻底消除数码爆音(Click/Pop)
                 gain.gain.setValueAtTime(0.0001, time);
-                gain.gain.exponentialRampToValueAtTime(gainVol, time + 0.02);
+                gain.gain.linearRampToValueAtTime(gainVol, time + 0.03);
                 gain.gain.exponentialRampToValueAtTime(0.0001, time + decayTime);
                 
-                osc.connect(gain); gain.connect(this.ctx.destination);
-                osc.start(time); osc.stop(time + decayTime + 0.05);
+                // 核心防刺耳：加入低通滤波器，模拟“羊水与肉身”的包裹感
+                filter.type = 'lowpass';
+                filter.frequency.value = 180; // 截断高频，只保留沉闷有力的低音共振
+                
+                osc.connect(gain); 
+                gain.connect(filter);
+                filter.connect(this.ctx.destination);
+                
+                osc.start(time); 
+                osc.stop(time + decayTime + 0.1);
             },
             playSingleBeat() {
                 if (!this.ctx) return;
                 const t = this.ctx.currentTime;
-                this.triggerHeartSound(t, 65, 0.12, this.isCalm ? 0.4 : 0.8);
-                this.triggerHeartSound(t + 0.28, 85, 0.10, this.isCalm ? 0.3 : 0.6);
+                // S1 (Lub) 收缩音，频率略低，更持久厚重
+                this.triggerHeartSound(t, 70, 0.18, this.isCalm ? 0.7 : 1.2);
+                // S2 (Dub) 舒张音，频率稍高，短促有力
+                this.triggerHeartSound(t + 0.35, 95, 0.12, this.isCalm ? 0.4 : 0.8);
 
                 if (!this.isCalm) {
                     if ('vibrate' in navigator) { try{ navigator.vibrate([40, 80, 25]); }catch(e){} }
@@ -248,7 +262,7 @@
             startHeartbeat() {
                 this.forceUnlock();
                 this.isCalm = false;
-                this.bpm = App.isHost ? 62 : 68;
+                this.bpm = App.isHost ? 62 : 68; 
                 const intervalMs = (60 / this.bpm) * 1000;
                 this.playSingleBeat(); 
                 this.beatTimer = setInterval(() => this.playSingleBeat(), intervalMs);
@@ -257,19 +271,33 @@
             playRupture() {
                 this.forceUnlock();
                 this.stopHeartbeat();
-                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.5, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
-                osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); osc.stop(this.ctx.currentTime + 0.6);
+                // 破裂声也做防刺耳低通处理
+                const osc = this.ctx.createOscillator(); 
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+                
+                osc.type = 'sawtooth'; 
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime); 
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.5);
+                
+                gain.gain.setValueAtTime(0.8, this.ctx.currentTime); 
+                gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
+                
+                filter.type = 'lowpass';
+                filter.frequency.value = 300; // 过滤掉锯齿波极其刺耳的高频
+
+                osc.connect(gain); 
+                gain.connect(filter);
+                filter.connect(this.ctx.destination); 
+                
+                osc.start(); 
+                osc.stop(this.ctx.currentTime + 0.6);
             },
             stopHeartbeat() {
                 if (this.beatTimer) { clearInterval(this.beatTimer); this.beatTimer = null; }
             }
         };
 
-        /**
-         * 全新：底层绝对规整、高级的爱心粒子引擎 (极简不喧宾夺主)
-         */
         const BgPulseEngine = {
             canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, hearts: [], isCalm: false,
             init() {
@@ -342,9 +370,6 @@
             }
         };
 
-        /**
-         * Canvas 仿生光茧动力学 (弹性贝塞尔代谢球)
-         */
         const CanvasEngine = {
             canvas: document.getElementById('cocoonCanvas'), ctx: null, reqId: null, running: false, isCalm: false,
             init() {
