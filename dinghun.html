@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>重力筑基 | The Bedrock Phase</title>
+    <!-- 引入高质感古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <!-- WebRTC 通信库 -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- QR Code 生成库 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     
     <style>
         :root {
@@ -17,69 +21,89 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body, html {
-            width: 100%; height: 100%; background-color: var(--bg-bedrock); color: var(--mineral-white);
-            font-family: var(--font-serif); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
-        }
-        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        body, html { width: 100%; height: 100%; background-color: var(--bg-bedrock); color: var(--mineral-white); font-family: var(--font-serif); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; }
         
+        /* 动态背景：地脉等高线 (新加入的底层引擎) */
+        #bgCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        /* 边缘交互：磐石咬合与杂质沉淀 */
         #bedrockCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
-        .state-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none;
-            transition: opacity 1.5s ease-in-out; padding: 2rem; text-align: center;
-        }
+        .state-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 1.5s ease-in-out; padding: 1.5rem; text-align: center; }
         .state-layer.active { opacity: 1; pointer-events: auto; }
 
         h1 { font-size: 2.2rem; font-weight: 400; letter-spacing: 0.25em; margin-bottom: 0.5rem; color: var(--mineral-white); text-shadow: 0 0 25px rgba(212,175,55,0.3); }
         .subtitle { font-size: 0.9rem; color: rgba(241, 245, 249, 0.6); letter-spacing: 0.15em; margin-bottom: 2rem; }
-        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(241, 245, 249, 0.85); max-width: 320px; }
+        .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(241, 245, 249, 0.9); max-width: 320px; }
 
-        .invite-btn {
-            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4);
-            color: var(--molten-gold); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 20px;
-            letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(212,175,55,0.1);
-        }
+        .invite-btn { margin-top: 1.5rem; padding: 0.75rem 1.8rem; background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4); color: var(--molten-gold); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(212,175,55,0.1); }
         .invite-btn:active { background: rgba(212, 175, 55, 0.2); }
 
-        .slider-container { position: absolute; bottom: 14%; width: 200px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; display: flex; align-items: center; }
-        .slider-thumb {
-            width: 44px; height: 44px; background: rgba(212, 175, 55, 0.15); border: 1px solid rgba(212, 175, 55, 0.6); border-radius: 50%;
-            position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(212, 175, 55, 0.3); transition: box-shadow 0.3s;
-        }
-        .slider-thumb::after { content: ''; width: 14px; height: 14px; background: var(--molten-gold); border-radius: 50%; box-shadow: 0 0 15px var(--molten-gold); }
-        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); pointer-events: none; letter-spacing: 0.1em; }
+        .slider-container { position: absolute; bottom: 12%; width: 220px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; display: flex; align-items: center; }
+        .slider-thumb { width: 48px; height: 48px; background: rgba(212, 175, 55, 0.15); border: 1px solid rgba(212, 175, 55, 0.6); border-radius: 50%; position: absolute; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px rgba(212, 175, 55, 0.3); transition: box-shadow 0.3s; }
+        .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--molten-gold); border-radius: 50%; box-shadow: 0 0 15px var(--molten-gold); }
+        .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); pointer-events: none; letter-spacing: 0.1em; }
 
-        .glass-panel {
-            background: rgba(11, 12, 14, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(212, 175, 55, 0.2); padding: 2.2rem 1.6rem; border-radius: 12px; max-width: 360px; width: 100%;
-            margin-bottom: 2rem; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(212,175,55,0.05);
+        /* 核心防溢出、高可读性深海毛玻璃面板 */
+        .glass-panel { 
+            background: rgba(11, 12, 14, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
+            border: 1px solid rgba(212, 175, 55, 0.25); padding: 2.2rem 1.6rem; border-radius: 16px; 
+            width: 90vw; max-width: 360px; margin-bottom: 2rem; 
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(212,175,55,0.05); 
         }
-        .glass-panel p { margin-bottom: 1.1rem; font-size: 1rem; line-height: 1.9; text-align: left; color: rgba(241, 245, 249, 0.92); }
+        .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(241, 245, 249, 0.95); }
         .glass-panel p:last-child { margin-bottom: 0; }
         .highlight { color: var(--molten-gold); font-weight: 600; text-shadow: 0 0 10px rgba(212,175,55,0.4); }
 
-        .hold-btn-wrapper { position: absolute; bottom: 8%; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; }
-        .hold-btn { width: 64px; height: 64px; border-radius: 50%; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.5); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; color: var(--molten-gold); z-index: 2; font-weight: 600; }
+        .hold-btn-wrapper { position: absolute; bottom: 8%; width: 90px; height: 90px; display: flex; justify-content: center; align-items: center; }
+        .hold-btn { width: 66px; height: 66px; border-radius: 50%; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.5); display: flex; justify-content: center; align-items: center; font-size: 0.85rem; font-weight: 600; color: var(--molten-gold); z-index: 2; letter-spacing: 0.05em; }
         .hold-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); z-index: 1; pointer-events: none; }
-        .hold-ring circle { fill: none; stroke: var(--molten-gold); stroke-width: 4; stroke-dasharray: 239; stroke-dashoffset: 239; transition: stroke-dashoffset 0.1s linear; }
+        .hold-ring circle { fill: none; stroke: var(--molten-gold); stroke-width: 4; stroke-dasharray: 264; stroke-dashoffset: 264; transition: stroke-dashoffset 0.1s linear; }
 
-        .bedrock-seal { width: 100px; height: 100px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; }
-        .bedrock-seal::before { content: ''; position: absolute; width: 84px; height: 84px; border: 1px solid rgba(212,175,55,0.4); transform: rotate(45deg); }
-        .bedrock-seal::after { content: ''; position: absolute; width: 44px; height: 44px; background: rgba(212,175,55,0.2); border: 2px solid var(--molten-gold); box-shadow: 0 0 25px rgba(212,175,55,0.6); }
+        .bedrock-seal { width: 90px; height: 90px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; }
+        .bedrock-seal::before { content: ''; position: absolute; width: 80px; height: 80px; border: 1px solid rgba(212,175,55,0.4); transform: rotate(45deg); }
+        .bedrock-seal::after { content: ''; position: absolute; width: 40px; height: 40px; background: rgba(212,175,55,0.2); border: 2px solid var(--molten-gold); box-shadow: 0 0 25px rgba(212,175,55,0.6); }
 
-        .save-btn { margin-top: 1rem; padding: 0.8rem 2.2rem; background: transparent; border: 1px solid rgba(212, 175, 55, 0.6); color: var(--molten-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 4px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(212,175,55,0.15); }
-        .save-btn:active { background: rgba(212, 175, 55, 0.2); }
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2.2rem; background: transparent; border: 1px solid rgba(212, 175, 55, 0.6); color: var(--molten-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(212,175,55,0.15); }
+        .save-btn:active { background: rgba(212, 175, 55, 0.25); }
 
-        #status-bar { position: absolute; top: env(safe-area-inset-top, 10px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(212,175,55,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; }
-        #renderCanvas { display: none; }
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(212,175,55,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+        
+        #renderCanvas, #posterCanvas { display: none; }
+
+        /* 海报模态框 */
+        .poster-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(5, 7, 10, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .poster-modal.show { opacity: 1; pointer-events: auto; }
+        .poster-content { position: relative; width: 85vw; max-width: 380px; }
+        .poster-content img { width: 100%; border-radius: 12px; box-shadow: 0 15px 40px rgba(0,0,0,0.8); display: block; }
+        .close-modal-btn { position: absolute; top: -45px; right: 0; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .poster-tip { margin-top: 1.5rem; color: rgba(255,255,255,0.7); font-size: 0.85rem; letter-spacing: 0.1em; text-align: center; }
     </style>
 </head>
 <body>
     <div id="status-bar">环境初始化中...</div>
+    
+    <!-- 动态地脉底层 -->
+    <canvas id="bgCanvas"></canvas>
+    <!-- 边缘交互：磐石与杂质 -->
     <canvas id="bedrockCanvas"></canvas>
+    
     <canvas id="renderCanvas" width="1080" height="1920"></canvas>
+    <canvas id="posterCanvas" width="1080" height="1920"></canvas>
+
+    <!-- 海报展示弹窗 -->
+    <div class="poster-modal" id="posterModal">
+        <div class="poster-content">
+            <span class="close-modal-btn" id="closeModalBtn">&times;</span>
+            <img id="posterImg" src="" alt="专属盟约海报" />
+        </div>
+        <p class="poster-tip">长按上方海报保存，发送给伴侣</p>
+    </div>
 
     <div id="app">
         <!-- 状态一：阵营校准 -->
@@ -88,7 +112,7 @@
             <p class="subtitle">在两姓的喧嚣之外，立下二人独存的磐石</p>
             <p class="instruction">请将两台手机平放于桌面，长边紧密贴合</p>
             
-            <button class="invite-btn" id="inviteBtn">复制房间链接发送给伴侣</button>
+            <button class="invite-btn" id="inviteBtn">生成专属盟约海报</button>
 
             <div class="slider-container" id="alignSliderBox">
                 <div class="slider-text" id="sliderText">滑动向接缝靠拢</div>
@@ -108,7 +132,7 @@
                 <span class="highlight">“外面的声音很重要，但我们俩筑起的这个新房间才是第一位的。无论他们怎么看，我们永远是同一个阵营。”</span></p>
             </div>
             <div class="hold-btn-wrapper">
-                <svg class="hold-ring" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38"></circle></svg>
+                <svg class="hold-ring" viewBox="0 0 90 90"><circle cx="45" cy="45" r="42"></circle></svg>
                 <div class="hold-btn" id="holdBtn">长按</div>
             </div>
         </div>
@@ -116,9 +140,9 @@
         <!-- 状态四：磐石法印 -->
         <div id="state4" class="state-layer">
             <div class="bedrock-seal"></div>
-            <div class="glass-panel" style="padding: 1.5rem;">
-                <p style="font-size: 0.85rem; text-align: center; color: rgba(212,175,55,0.8); margin-bottom: 0.8rem;">请一起读出以下内容：</p>
-                <p style="text-align: center; font-size: 0.92rem; line-height: 1.85;">
+            <div class="glass-panel" style="padding: 1.8rem 1.6rem;">
+                <p style="font-size: 0.85rem; text-align: center; color: rgba(212,175,55,0.7); margin-bottom: 1rem;">请一起读出以下内容：</p>
+                <p style="text-align: center; font-size: 0.95rem; line-height: 1.85;">
                     婚姻不是两个家族的合同谈判，而是一个全新独立生命体的诞生。从今天起，你的伴侣超越所有血缘长辈，成为你首要保护、优先体谅的骨中之肉。
                 </p>
             </div>
@@ -154,6 +178,9 @@
             }
         };
 
+        /**
+         * 纯正声学引擎：多谐波地壳共振算法
+         */
         const AudioEngine = {
             ctx: null, oscs: [], gainNode: null, initialized: false,
             forceUnlock() {
@@ -164,7 +191,7 @@
             playResonance() {
                 this.forceUnlock();
                 if (this.oscs.length > 0) return;
-                // 多谐波地壳共振算法：55Hz, 110Hz, 165Hz, 220Hz
+                // 倍频合成法，突破手机微型扬声器低频限制
                 const freqs = [55, 110, 165, 220];
                 this.gainNode = this.ctx.createGain();
                 this.gainNode.gain.setValueAtTime(0.01, this.ctx.currentTime);
@@ -188,12 +215,67 @@
             stopResonance() {
                 if (this.oscs.length > 0 && this.ctx) {
                     this.oscs.forEach(osc => { try{ osc.stop(); }catch(e){} });
-                    this.oscs = [];
-                    this.gainNode = null;
+                    this.oscs = []; this.gainNode = null;
                 }
             }
         };
 
+        /**
+         * 全新引擎：底层动态地脉线条 (BgBedrockEngine)
+         * 渲染缓慢流动的熔金等高线，营造厚重的地质感
+         */
+        const BgBedrockEngine = {
+            canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, time: 0,
+            init() {
+                this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
+                this.start();
+            },
+            resize() {
+                const dpr = window.devicePixelRatio || 1; this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr; this.ctx.scale(dpr, dpr);
+            },
+            start() { if (!this.ctx) this.init(); this.draw(); },
+            draw() {
+                const w = window.innerWidth; const h = window.innerHeight;
+                this.ctx.fillStyle = '#0b0c0e';
+                this.ctx.fillRect(0, 0, w, h);
+                this.time += 0.003; // 极其缓慢的流动感
+                
+                const lines = 8;
+                for(let i = 0; i < lines; i++) {
+                    const depth = i / (lines - 1); // 0 (远) 到 1 (近)
+                    const baseY = h * 0.4 + depth * (h * 0.5); 
+                    const amplitude = 15 + depth * 40;
+                    const freq = 0.001 + (1 - depth) * 0.002;
+                    const opacity = 0.05 + depth * 0.15;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, baseY);
+                    for(let x = 0; x <= w; x += 15) {
+                        // 有机地形起伏波形
+                        const y = baseY + Math.sin(x * freq + this.time + i) * amplitude + Math.cos(x * freq * 0.8 - this.time * 0.5) * amplitude * 0.5;
+                        this.ctx.lineTo(x, y);
+                    }
+                    this.ctx.strokeStyle = `rgba(212, 175, 55, ${opacity})`;
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.stroke();
+                    
+                    // 熔岩光晕渐变
+                    this.ctx.lineTo(w, h);
+                    this.ctx.lineTo(0, h);
+                    this.ctx.closePath();
+                    const grad = this.ctx.createLinearGradient(0, baseY - amplitude, 0, h);
+                    grad.addColorStop(0, `rgba(212, 175, 55, ${opacity * 0.3})`);
+                    grad.addColorStop(1, 'rgba(11, 12, 14, 0)');
+                    this.ctx.fillStyle = grad;
+                    this.ctx.fill();
+                }
+                this.reqId = requestAnimationFrame(() => this.draw());
+            }
+        };
+
+        /**
+         * 上层交互：接缝磐石与杂质沉淀
+         */
         const CanvasEngine = {
             canvas: document.getElementById('bedrockCanvas'), ctx: null, reqId: null, dustParticles: [], isBedrockActive: false, isStable: false,
             init() {
@@ -212,8 +294,7 @@
             start() { if (!this.reqId) this.draw(); },
             draw() {
                 const w = window.innerWidth; const h = window.innerHeight;
-                this.ctx.fillStyle = this.isStable ? '#07080a' : '#0b0c0e';
-                this.ctx.fillRect(0, 0, w, h);
+                this.ctx.clearRect(0, 0, w, h); // 仅清理上层
                 
                 const jointX = App.isHost ? w : 0;
                 const bedrockWidth = w * 0.4;
@@ -226,7 +307,7 @@
                     this.ctx.fillRect(App.isHost ? w - bedrockWidth : 0, 0, bedrockWidth, h);
                 }
 
-                // 绘制粉尘/杂质排斥或沉淀动效
+                // 绘制粉尘/杂质动效
                 this.dustParticles.forEach(p => {
                     p.x += p.vx; p.y += p.vy;
                     if(p.x < 0) p.x = w; if(p.x > w) p.x = 0;
@@ -243,7 +324,6 @@
         const SensorEngine = {
             baseBeta: null, baseGamma: null, wakeLock: null,
             async requestPermissions() {
-                AudioEngine.playResonance();
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
                 }
@@ -308,34 +388,89 @@
 
         function initUI() {
             const inviteBtn = document.getElementById('inviteBtn');
-            inviteBtn.addEventListener('click', () => {
+            const modal = document.getElementById('posterModal');
+            const closeBtn = document.getElementById('closeModalBtn');
+
+            // 电影级海报生成逻辑
+            inviteBtn.addEventListener('click', async () => {
                 if (window.location.protocol === 'file:') {
-                    alert("⚠️ 本地协议提醒 ⚠️\n\n您正在直接打开本地文件 (file:///)。\n请使用 VS Code 'Live Server' 插件运行，或部署至任意 HTTP 服务器，方可让两台手机通过网址共享房间！");
-                    return;
+                    alert("⚠️ 协议错误提醒 ⚠️\n\n请使用 VS Code 'Live Server' 或部署在 HTTP 环境，才能生成有效连接和海报！"); return;
                 }
+                if (typeof QRCode === 'undefined') {
+                    alert("海报引擎加载中，请稍后重试..."); return;
+                }
+                
+                inviteBtn.innerText = "盟约海报生成中...";
                 const url = window.location.href;
-                navigator.clipboard.writeText(url).then(() => {
-                    inviteBtn.innerText = "已复制专属盟约链接！"; inviteBtn.style.borderColor = "var(--molten-gold)";
-                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(212, 175, 55, 0.4)"; }, 3000);
-                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制地址栏"; });
+                
+                try {
+                    // 1. 生成二维码
+                    const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: '#ffffff', light: '#00000000' } });
+                    const qrImg = new Image();
+                    qrImg.src = qrDataUrl;
+                    
+                    qrImg.onload = () => {
+                        // 2. 绘制海报
+                        const canvas = document.getElementById('posterCanvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 底色与地脉光晕
+                        ctx.fillStyle = '#0b0c0e'; ctx.fillRect(0, 0, 1080, 1920);
+                        const grad = ctx.createRadialGradient(540, 960, 50, 540, 960, 800);
+                        grad.addColorStop(0, 'rgba(212, 175, 55, 0.25)'); grad.addColorStop(1, 'rgba(11, 12, 14, 0)');
+                        ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
+                        
+                        // 顶部标题
+                        ctx.fillStyle = '#f1f5f9'; ctx.textAlign = 'center'; ctx.font = '70px "Noto Serif SC", serif'; ctx.fillText('重 力 筑 基', 540, 380);
+                        
+                        // 浪漫金句
+                        ctx.fillStyle = 'rgba(241, 245, 249, 0.9)'; ctx.font = 'italic 46px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“在两姓的喧嚣外，立下了一方磐石”', 540, 560);
+                        
+                        // 绘制地脉装饰线
+                        ctx.beginPath();
+                        for (let x = 200; x <= 880; x += 15) {
+                            ctx.lineTo(x, 650 + Math.sin(x * 0.02) * 20);
+                        }
+                        ctx.strokeStyle = 'rgba(212, 175, 55, 0.5)'; ctx.lineWidth = 2.5; ctx.stroke();
+                        
+                        // 绘制二维码
+                        ctx.drawImage(qrImg, 390, 800, 300, 300);
+                        
+                        // 底部文案
+                        ctx.fillStyle = 'rgba(212, 175, 55, 0.8)'; ctx.font = '36px "Noto Serif SC", serif'; ctx.fillText('长按识别二维码 · 进入专属盟约房间', 540, 1300);
+                        
+                        // 防封提示
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.font = '28px "Noto Serif SC", serif'; ctx.fillText('请点击右上角「在默认浏览器中打开」以唤醒传感器', 540, 1380);
+
+                        // 3. 显示弹窗
+                        document.getElementById('posterImg').src = canvas.toDataURL('image/png');
+                        modal.classList.add('show');
+                        inviteBtn.innerText = "生成专属盟约海报";
+                    };
+                } catch (e) {
+                    inviteBtn.innerText = "海报生成失败，请重试";
+                    console.error(e);
+                }
             });
+
+            closeBtn.addEventListener('click', () => modal.classList.remove('show'));
 
             const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
             document.addEventListener('pointerdown', unlockAudio, { once: true });
 
             const sliderBox = document.getElementById('alignSliderBox'); const thumb = document.getElementById('sliderThumb');
             let isDragging = false;
-            setTimeout(() => { thumb.style.left = App.isHost ? '0px' : '156px'; }, 1000);
+            setTimeout(() => { thumb.style.left = App.isHost ? '0px' : '172px'; }, 1000);
 
             thumb.addEventListener('pointerdown', () => { isDragging = true; SensorEngine.requestPermissions(); });
             window.addEventListener('pointermove', (e) => {
                 if (!isDragging) return; const rect = sliderBox.getBoundingClientRect();
-                let x = e.clientX - rect.left - 22; x = Math.max(0, Math.min(x, 156)); thumb.style.left = x + 'px';
-                const target = App.isHost ? 156 : 0;
+                let x = e.clientX - rect.left - 24; x = Math.max(0, Math.min(x, 172)); thumb.style.left = x + 'px';
+                const target = App.isHost ? 172 : 0;
                 if (Math.abs(x - target) < 10) { if (!RTC.localSliding) RTC.setLocalSliding(true); } else { if (RTC.localSliding) RTC.setLocalSliding(false); }
             });
             window.addEventListener('pointerup', () => {
-                if (isDragging) { isDragging = false; RTC.setLocalSliding(false); thumb.style.left = App.isHost ? '0px' : '156px'; }
+                if (isDragging) { isDragging = false; RTC.setLocalSliding(false); thumb.style.left = App.isHost ? '0px' : '172px'; }
             });
 
             const holdBtn = document.getElementById('holdBtn'); const ringCircle = document.querySelector('.hold-ring circle');
@@ -343,7 +478,7 @@
             const startHold = () => {
                 if (App.state !== 3) return; progress = 0;
                 holdTimer = setInterval(() => {
-                    progress = Math.min(100, progress + 0.66); ringCircle.style.strokeDashoffset = 239 - (239 * progress / 100);
+                    progress = Math.min(100, progress + 0.66); ringCircle.style.strokeDashoffset = 264 - (264 * progress / 100);
                     if (progress >= 100) {
                         clearInterval(holdTimer);
                         if ('vibrate' in navigator) { try{navigator.vibrate([80, 50, 80]);}catch(e){} }
@@ -351,7 +486,7 @@
                     }
                 }, 20);
             };
-            const stopHold = () => { clearInterval(holdTimer); progress = 0; ringCircle.style.strokeDashoffset = 239; };
+            const stopHold = () => { clearInterval(holdTimer); progress = 0; ringCircle.style.strokeDashoffset = 264; };
             holdBtn.addEventListener('pointerdown', startHold); holdBtn.addEventListener('pointerup', stopHold); holdBtn.addEventListener('pointerleave', stopHold);
             document.getElementById('saveBtn').addEventListener('click', generateCertificate);
         }
@@ -388,7 +523,33 @@
             }
         };
 
-        window.addEventListener('DOMContentLoaded', () => { CanvasEngine.init(); RTC.init(); initUI(); });
+        // 微信防拦截遮罩层检测
+        function checkWeChat() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.match(/MicroMessenger/i) == "micromessenger") {
+                const mask = document.createElement('div');
+                mask.style.cssText = `position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 12, 14, 0.98); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 15vh; color: #d4af37; font-family: 'Noto Serif SC', serif; text-align: center;`;
+                mask.innerHTML = `
+                    <div style="position:absolute; top: 20px; right: 30px; font-size: 3.5rem; animation: float 1s infinite alternate;">↗</div>
+                    <h2 style="font-weight: 400; letter-spacing: 0.1em; margin-bottom: 1.5rem;">请前往独立空间</h2>
+                    <p style="color: rgba(255,255,255,0.8); font-size: 1.1rem; width: 85%; line-height: 2;">
+                        微信环境无法唤醒重力传感器。<br><br>请点击右上角【···】<br>选择在 <b>Safari</b> 或 <b>默认浏览器</b> 中打开以建立连接。
+                    </p>
+                    <style>@keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(10px, -10px); } }</style>
+                `;
+                document.body.appendChild(mask);
+                return true;
+            }
+            return false;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { 
+            if (checkWeChat()) return; 
+            BgBedrockEngine.init(); 
+            CanvasEngine.init(); 
+            RTC.init(); 
+            initUI(); 
+        });
         window.addEventListener('beforeunload', () => location.hash = '');
     </script>
 </body>
