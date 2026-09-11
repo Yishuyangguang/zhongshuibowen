@@ -6,11 +6,14 @@
     <title>风暴避风港 | The Haven Phase</title>
     <!-- 引入高质感古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <!-- WebRTC 通信库 -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- QR Code 生成库 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     
     <style>
         :root {
-            --bg-storm: #050b14;
+            var(--bg-storm): #050b14;
             --haven-white: #ffffff;
             --haven-glow: #fdf6e3;
             --text-dark: #1a202c;
@@ -21,14 +24,14 @@
         
         body, html {
             width: 100%; height: 100%; 
-            background-color: var(--bg-storm); 
+            background-color: #050b14; 
             color: var(--haven-glow); 
             font-family: var(--font-serif); 
             overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
             transition: background-color 2s ease-in-out; /* 动态背景变色平滑过渡 */
         }
 
-        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2;}
         
         #stormCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
@@ -44,9 +47,9 @@
         .instruction { font-size: 1.05rem; line-height: 1.8; font-weight: 300; letter-spacing: 0.05em; color: rgba(253, 246, 227, 0.85); max-width: 320px; transition: color 1.5s; }
 
         .invite-btn {
-            margin-top: 1.5rem; padding: 0.7rem 1.6rem; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.3);
-            color: rgba(255,255,255,0.8); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px;
-            letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,255,255,0.05);
+            margin-top: 1.5rem; padding: 0.75rem 1.8rem; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.35);
+            color: rgba(255,255,255,0.9); font-family: var(--font-serif); font-size: 0.85rem; border-radius: 25px;
+            letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,255,255,0.1);
         }
         .invite-btn:active { background: rgba(255, 255, 255, 0.2); }
 
@@ -84,7 +87,8 @@
         .save-btn:active { background: rgba(255, 255, 255, 0.2); }
 
         #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(255,255,255,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; transition: color 2s ease;}
-        #renderCanvas { display: none; }
+        
+        #renderCanvas, #posterCanvas { display: none; }
 
         /* ====== 核心黑科技：亮色模式适配 (解决状态3和4纯白底色看不清字的问题) ====== */
         body.light-theme {
@@ -104,12 +108,36 @@
         body.light-theme .concentric-seal::before { border-color: rgba(0,0,0,0.3); }
         body.light-theme .concentric-seal::after { border-color: rgba(0,0,0,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.1); }
         body.light-theme .save-btn { background: rgba(255, 255, 255, 0.8); color: var(--text-dark); border-color: rgba(0,0,0,0.4); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+
+        /* 海报模态框 */
+        .poster-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(5, 11, 20, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .poster-modal.show { opacity: 1; pointer-events: auto; }
+        .poster-content { position: relative; width: 85vw; max-width: 380px; }
+        .poster-content img { width: 100%; border-radius: 12px; box-shadow: 0 15px 40px rgba(0,0,0,0.8); display: block; }
+        .close-modal-btn { position: absolute; top: -45px; right: 0; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .poster-tip { margin-top: 1.5rem; color: rgba(255,255,255,0.7); font-size: 0.85rem; letter-spacing: 0.1em; text-align: center; }
     </style>
 </head>
 <body>
     <div id="status-bar">环境初始化中...</div>
     <canvas id="stormCanvas"></canvas>
+    
     <canvas id="renderCanvas" width="1080" height="1920"></canvas>
+    <canvas id="posterCanvas" width="1080" height="1920"></canvas>
+
+    <!-- 海报展示弹窗 -->
+    <div class="poster-modal" id="posterModal">
+        <div class="poster-content">
+            <span class="close-modal-btn" id="closeModalBtn">&times;</span>
+            <img id="posterImg" src="" alt="专属避风港海报" />
+        </div>
+        <p class="poster-tip">长按上方海报保存，发送给伴侣</p>
+    </div>
 
     <div id="app">
         <!-- 状态一：暴雨预警 -->
@@ -118,7 +146,7 @@
             <p class="subtitle">在被世界吞没之前，回到最初的同心圆</p>
             <p class="instruction">请将两台手机平放于桌面，长边紧贴</p>
             
-            <button class="invite-btn" id="inviteBtn">复制房间链接发送给伴侣</button>
+            <button class="invite-btn" id="inviteBtn">生成专属避风港海报</button>
 
             <div class="slider-container" id="alignSliderBox">
                 <div class="slider-text" id="sliderText">滑动锁扣开启静音仓</div>
@@ -191,7 +219,7 @@
         };
 
         /**
-         * 极端声学合成引擎 (物理闷音反馈)
+         * 极端声学合成引擎 (物理闷音反馈) - 音量已柔和处理
          */
         const AudioEngine = {
             ctx: null, stormNode: null, filterNode: null, sineNode: null, initialized: false,
@@ -213,9 +241,10 @@
                 
                 this.filterNode = this.ctx.createBiquadFilter(); 
                 this.filterNode.type = 'lowpass'; 
-                this.filterNode.frequency.value = 5000; // 初始狂风暴雨高频
+                this.filterNode.frequency.value = 5000; 
 
-                const gain = this.ctx.createGain(); gain.gain.value = 0.8;
+                // 【已优化】下调全局降雨音量，避免吵闹
+                const gain = this.ctx.createGain(); gain.gain.value = 0.45;
                 noise.connect(this.filterNode); this.filterNode.connect(gain); gain.connect(this.ctx.destination);
                 noise.start(); this.stormNode = { source: noise, gain: gain };
             },
@@ -225,7 +254,8 @@
                 if (!this.filterNode) return;
                 // 0.3秒内截止频率雪崩式下降，模拟厚重舱门隔音
                 this.filterNode.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.3);
-                this.stormNode.gain.gain.exponentialRampToValueAtTime(0.3, this.ctx.currentTime + 0.3);
+                // 【已优化】关门后雨声更加沉静微弱
+                this.stormNode.gain.gain.exponentialRampToValueAtTime(0.15, this.ctx.currentTime + 0.3);
                 
                 // 极微弱的纯正弦波产生安全的“耳鸣感”
                 if(!this.sineNode) {
@@ -240,7 +270,7 @@
             unmuffleStorm() {
                 if (this.filterNode && this.ctx) { 
                     this.filterNode.frequency.exponentialRampToValueAtTime(5000, this.ctx.currentTime + 0.1); 
-                    this.stormNode.gain.gain.exponentialRampToValueAtTime(0.8, this.ctx.currentTime + 0.1); 
+                    this.stormNode.gain.gain.exponentialRampToValueAtTime(0.45, this.ctx.currentTime + 0.1); 
                 }
                 if (this.sineNode && this.ctx) { 
                     this.sineNode.gain.gain.linearRampToValueAtTime(0.0001, this.ctx.currentTime + 0.1); 
@@ -391,16 +421,68 @@
 
         function initUI() {
             const inviteBtn = document.getElementById('inviteBtn');
-            inviteBtn.addEventListener('click', () => {
+            const modal = document.getElementById('posterModal');
+            const closeBtn = document.getElementById('closeModalBtn');
+
+            // 电影级海报生成逻辑
+            inviteBtn.addEventListener('click', async () => {
                 if (window.location.protocol === 'file:') {
-                    alert("⚠️ 协议提醒 ⚠️\n\n请不要直接双击本地 HTML 文件 (file:///)。\n请使用 VS Code 'Live Server' 插件打开，这样才能跨设备联机！"); return;
+                    alert("⚠️ 协议错误提醒 ⚠️\n\n请使用 VS Code 'Live Server' 或部署在 HTTP 环境，才能生成有效连接和海报！"); return;
                 }
+                if (typeof QRCode === 'undefined') {
+                    alert("海报引擎加载中，请稍后重试..."); return;
+                }
+                
+                inviteBtn.innerText = "海报生成中...";
                 const url = window.location.href;
-                navigator.clipboard.writeText(url).then(() => {
-                    inviteBtn.innerText = "已复制！请粘贴发送给对方"; inviteBtn.style.borderColor = "var(--haven-white)";
-                    setTimeout(() => { inviteBtn.innerText = "复制房间链接发送给伴侣"; inviteBtn.style.borderColor = "rgba(255, 255, 255, 0.3)"; }, 3000);
-                }).catch(() => { inviteBtn.innerText = "复制失败，请手动复制地址栏"; });
+                
+                try {
+                    const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: '#ffffff', light: '#00000000' } });
+                    const qrImg = new Image();
+                    qrImg.src = qrDataUrl;
+                    
+                    qrImg.onload = () => {
+                        const canvas = document.getElementById('posterCanvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 海报深邃风暴底色与中心暖光
+                        ctx.fillStyle = '#050b14'; ctx.fillRect(0, 0, 1080, 1920);
+                        const grad = ctx.createRadialGradient(540, 960, 50, 540, 960, 800);
+                        grad.addColorStop(0, 'rgba(255, 255, 255, 0.15)'); grad.addColorStop(1, 'rgba(5, 11, 20, 1)');
+                        ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
+                        
+                        // 绘制海报上的电影感雨丝
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.lineWidth = 2;
+                        for(let i=0; i<50; i++) {
+                            ctx.beginPath();
+                            let startX = Math.random() * 1080;
+                            let startY = Math.random() * 1920;
+                            ctx.moveTo(startX, startY);
+                            ctx.lineTo(startX + 20, startY + 60);
+                            ctx.stroke();
+                        }
+                        
+                        // 顶部标题
+                        ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '70px "Noto Serif SC", serif'; ctx.fillText('风 暴 避 风 港', 540, 380);
+                        
+                        // 浪漫金句
+                        ctx.fillStyle = 'rgba(253, 246, 227, 0.9)'; ctx.font = 'italic 42px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“当外界大水漫过堤坝，这里是我们的纯白静音仓”', 540, 560);
+                        
+                        // 二维码与底部文案
+                        ctx.drawImage(qrImg, 390, 800, 300, 300);
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.font = '36px "Noto Serif SC", serif'; ctx.fillText('长按识别二维码 · 进入专属避风港', 540, 1300);
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.font = '28px "Noto Serif SC", serif'; ctx.fillText('请点击右上角「在默认浏览器中打开」以唤醒传感器', 540, 1380);
+
+                        document.getElementById('posterImg').src = canvas.toDataURL('image/png');
+                        modal.classList.add('show');
+                        inviteBtn.innerText = "生成专属避风港海报";
+                    };
+                } catch (e) {
+                    inviteBtn.innerText = "海报生成失败，请重试"; console.error(e);
+                }
             });
+
+            closeBtn.addEventListener('click', () => modal.classList.remove('show'));
 
             const unlockAudio = () => { AudioEngine.forceUnlock(); document.removeEventListener('pointerdown', unlockAudio); };
             document.addEventListener('pointerdown', unlockAudio, { once: true });
@@ -470,7 +552,32 @@
             }
         };
 
-        window.addEventListener('DOMContentLoaded', () => { CanvasEngine.init(); RTC.init(); initUI(); });
+        // 微信防拦截遮罩层检测
+        function checkWeChat() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.match(/MicroMessenger/i) == "micromessenger") {
+                const mask = document.createElement('div');
+                mask.style.cssText = `position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(5, 11, 20, 0.98); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 15vh; color: #ffffff; font-family: 'Noto Serif SC', serif; text-align: center;`;
+                mask.innerHTML = `
+                    <div style="position:absolute; top: 20px; right: 30px; font-size: 3.5rem; animation: float 1s infinite alternate;">↗</div>
+                    <h2 style="font-weight: 400; letter-spacing: 0.1em; margin-bottom: 1.5rem;">请前往独立空间</h2>
+                    <p style="color: rgba(255,255,255,0.8); font-size: 1.1rem; width: 85%; line-height: 2;">
+                        微信环境无法唤醒环境传感器。<br><br>请点击右上角【···】<br>选择在 <b>Safari</b> 或 <b>默认浏览器</b> 中打开以建立连接。
+                    </p>
+                    <style>@keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(10px, -10px); } }</style>
+                `;
+                document.body.appendChild(mask);
+                return true;
+            }
+            return false;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { 
+            if (checkWeChat()) return; 
+            CanvasEngine.init(); 
+            RTC.init(); 
+            initUI(); 
+        });
         window.addEventListener('beforeunload', () => location.hash = '');
     </script>
 </body>
