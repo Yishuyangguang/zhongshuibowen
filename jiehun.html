@@ -30,7 +30,9 @@
 
         #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; }
         
+        /* 动态背景：上升的微火余烬 */
         #bgCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        /* 交互前景：边缘的接缝热量光晕 */
         #hearthCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
         
         .state-layer {
@@ -59,6 +61,7 @@
         .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--ember-orange); border-radius: 50%; box-shadow: 0 0 15px var(--ember-orange); }
         .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(247, 242, 234, 0.5); pointer-events: none; letter-spacing: 0.1em; }
 
+        /* 核心防溢出、高可读性温润毛玻璃面板 */
         .glass-panel {
             background: rgba(15, 10, 8, 0.85); 
             backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
@@ -80,10 +83,10 @@
         .hearth-seal::before { content: ''; position: absolute; width: 60px; height: 60px; border: 1px solid rgba(247,242,234,0.4); border-radius: 50%; }
         .hearth-seal::after { content: ''; position: absolute; width: 24px; height: 24px; background: var(--ember-orange); border-radius: 50%; box-shadow: 0 0 20px var(--flame-gold); }
 
-        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(255, 122, 24, 0.5); color: var(--flame-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,122,24,0.1); }
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(255, 122, 24, 0.5); color: var(--flame-gold); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(255,122,24,0.15); }
         .save-btn:active { background: rgba(255, 122, 24, 0.25); }
 
-        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(247,242,234,0.6); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
+        #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(247,242,234,0.5); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; }
         
         #renderCanvas, #posterCanvas { display: none; }
 
@@ -198,7 +201,7 @@
         };
 
         /**
-         * 极致温润的程序化壁炉声学引擎 (专属修改版)
+         * 优化：极其安静、稀疏的程序化壁炉声学引擎
          */
         const AudioEngine = {
             ctx: null, rumbleNode: null, crackleNode: null, initialized: false, isCalm: false,
@@ -207,42 +210,24 @@
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext(); this.ctx.resume(); this.initialized = true;
             },
-            // 使用粉红噪声发生器，代替原先刺耳的随机白噪声，声音极其温润
-            createPinkNoiseBuffer(len) {
-                const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+            createRumbleBuffer() {
+                const len = this.ctx.sampleRate * 2; const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
                 const data = buf.getChannelData(0);
-                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
-                for (let i = 0; i < len; i++) {
-                    let white = Math.random() * 2 - 1;
-                    b0 = 0.99886 * b0 + white * 0.0555179; b1 = 0.99332 * b1 + white * 0.0750759; b2 = 0.96900 * b2 + white * 0.1538520;
-                    b3 = 0.86650 * b3 + white * 0.3104856; b4 = 0.55000 * b4 + white * 0.5329522; b5 = -0.7616 * b5 - white * 0.0168980;
-                    data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
-                    b6 = white * 0.115926;
-                }
+                for(let i=0; i<len; i++) data[i] = (Math.random()*2-1) * 0.5;
                 return buf;
             },
-            // 温暖厚重的底层气流燃烧声
-            createRumbleBuffer() {
-                return this.createPinkNoiseBuffer(this.ctx.sampleRate * 2);
-            },
-            // 逼真的圆润木炭爆裂声 (带有平滑指数包络的粉红噪声阵列，消除“沙沙”声)
+            // 修改点：使得爆裂声极其稀疏、温柔，避免密集的噼啪声
             createCrackleBuffer() {
                 const len = this.ctx.sampleRate * 4; const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
                 const data = buf.getChannelData(0);
-                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
                 for(let i=0; i<len; i++) {
-                    if(Math.random() < 0.0004) { // 极低概率触发爆点，不突兀
+                    // 极大幅度降低爆裂概率，从 0.0003 降至 0.00005，形成偶尔才有的星火声
+                    if(Math.random() < 0.00005) { 
                         let decay = 1;
-                        let burstLen = Math.floor(Math.random() * 800 + 400); // 随机爆裂长度
+                        let burstLen = Math.floor(Math.random() * 800 + 400); 
                         for(let j=0; j<burstLen && (i+j)<len; j++) {
-                            let white = Math.random() * 2 - 1;
-                            b0 = 0.99886 * b0 + white * 0.0555179; b1 = 0.99332 * b1 + white * 0.0750759; b2 = 0.96900 * b2 + white * 0.1538520;
-                            b3 = 0.86650 * b3 + white * 0.3104856; b4 = 0.55000 * b4 + white * 0.5329522; b5 = -0.7616 * b5 - white * 0.0168980;
-                            let pink = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
-                            b6 = white * 0.115926;
-                            
-                            data[i+j] = pink * decay * 2.5; 
-                            decay *= 0.985; // 缓慢衰减，产生木质的“啵”声
+                            data[i+j] = (Math.random()*2-1) * decay * 0.6; // 降低单次爆裂的尖锐度
+                            decay *= 0.95; 
                         }
                         i += burstLen;
                     }
@@ -254,30 +239,25 @@
                 if (this.rumbleNode) return;
                 this.isCalm = false;
 
-                // 1. 低频气流燃烧，加入 LFO 火苗呼吸摇曳感
                 const rumbleSrc = this.ctx.createBufferSource(); rumbleSrc.buffer = this.createRumbleBuffer(); rumbleSrc.loop = true;
-                const lowpass = this.ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 220; // 温暖的中低频
-                const rumbleGain = this.ctx.createGain(); rumbleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); rumbleGain.gain.exponentialRampToValueAtTime(1.2, this.ctx.currentTime + 2);
-                
-                const flutterLfo = this.ctx.createOscillator(); flutterLfo.type = 'sine'; flutterLfo.frequency.value = 0.6; // 摇曳频率
-                const flutterGain = this.ctx.createGain(); flutterGain.gain.value = 60; // 调制深度
-                flutterLfo.connect(flutterGain); flutterGain.connect(lowpass.frequency); flutterLfo.start();
-
+                const lowpass = this.ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 150;
+                // 修改点：底噪也变得更为温和
+                const rumbleGain = this.ctx.createGain(); rumbleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); rumbleGain.gain.exponentialRampToValueAtTime(0.6, this.ctx.currentTime + 2);
                 rumbleSrc.connect(lowpass); lowpass.connect(rumbleGain); rumbleGain.connect(this.ctx.destination);
-                rumbleSrc.start(); this.rumbleNode = { source: rumbleSrc, gain: rumbleGain, lfo: flutterLfo };
+                rumbleSrc.start(); this.rumbleNode = { source: rumbleSrc, gain: rumbleGain };
 
-                // 2. 高级木炭爆裂，带通滤波彻底去除非自然高频
                 const crackleSrc = this.ctx.createBufferSource(); crackleSrc.buffer = this.createCrackleBuffer(); crackleSrc.loop = true;
-                const bandpass = this.ctx.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 1000; bandpass.Q.value = 0.8; 
-                const crackleGain = this.ctx.createGain(); crackleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); crackleGain.gain.exponentialRampToValueAtTime(1.0, this.ctx.currentTime + 1);
-                
-                crackleSrc.connect(bandpass); bandpass.connect(crackleGain); crackleGain.connect(this.ctx.destination);
+                const highpass = this.ctx.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 2000;
+                // 修改点：降低爆裂声的最高音量，退居完美的背景音
+                const crackleGain = this.ctx.createGain(); crackleGain.gain.setValueAtTime(0.01, this.ctx.currentTime); crackleGain.gain.exponentialRampToValueAtTime(0.3, this.ctx.currentTime + 1);
+                crackleSrc.connect(highpass); highpass.connect(crackleGain); crackleGain.connect(this.ctx.destination);
                 crackleSrc.start(); this.crackleNode = { source: crackleSrc, gain: crackleGain };
             },
             fadeToCalm() {
                 this.isCalm = true;
-                if (this.crackleNode && this.ctx) this.crackleNode.gain.gain.exponentialRampToValueAtTime(0.15, this.ctx.currentTime + 3);
-                if (this.rumbleNode && this.ctx) this.rumbleNode.gain.gain.exponentialRampToValueAtTime(0.6, this.ctx.currentTime + 3);
+                // 温存期更安静
+                if (this.crackleNode && this.ctx) this.crackleNode.gain.gain.exponentialRampToValueAtTime(0.05, this.ctx.currentTime + 3);
+                if (this.rumbleNode && this.ctx) this.rumbleNode.gain.gain.exponentialRampToValueAtTime(0.3, this.ctx.currentTime + 3);
             },
             playSizzle() {
                 this.forceUnlock();
@@ -292,26 +272,17 @@
                     this.rumbleNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
                     this.rumbleNode.gain.gain.setValueAtTime(this.rumbleNode.gain.gain.value, this.ctx.currentTime);
                     this.rumbleNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-                    setTimeout(() => { 
-                        if(this.rumbleNode) {
-                            this.rumbleNode.source.stop(); 
-                            if(this.rumbleNode.lfo) this.rumbleNode.lfo.stop();
-                            this.rumbleNode = null; 
-                        }
-                    }, 500);
+                    setTimeout(() => { if(this.rumbleNode) this.rumbleNode.source.stop(); this.rumbleNode = null; }, 500);
                 }
                 if (this.crackleNode && this.ctx) {
                     this.crackleNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
                     this.crackleNode.gain.gain.setValueAtTime(this.crackleNode.gain.gain.value, this.ctx.currentTime);
                     this.crackleNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-                    setTimeout(() => { if(this.crackleNode) { this.crackleNode.source.stop(); this.crackleNode = null; } }, 500);
+                    setTimeout(() => { if(this.crackleNode) this.crackleNode.source.stop(); this.crackleNode = null; }, 500);
                 }
             }
         };
 
-        /**
-         * 极简高级：底层环境火星粒子引擎
-         */
         const BgHearthEngine = {
             canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, particles: [], isCalm: false,
             init() {
