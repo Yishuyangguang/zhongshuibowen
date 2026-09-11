@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>水镜探源 | The Mirror Phase</title>
-    <!-- 引入优雅的古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-    <!-- WebRTC 通信库 -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <!-- QR Code 生成库 (用于生成海报二维码) -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     
     <style>
@@ -16,7 +13,6 @@
             --bg-dark: #0d0f12;
             --text-main: #f0f4f8;
             --water-cyan: #38bdf8;
-            --water-deep: rgba(56, 189, 248, 0.15);
             --font-serif: 'Noto Serif SC', 'Playfair Display', serif;
         }
 
@@ -24,7 +20,7 @@
         body, html { width: 100%; height: 100%; background-color: var(--bg-dark); color: var(--text-main); font-family: var(--font-serif); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
         #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; }
         
-        /* 动态背景湖面 (新加入的底层 3D 粒子水纹) */
+        /* 动态背景湖面 (极简曲线水波) */
         #bgCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
         /* 边缘融合水波 */
         #waterCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
@@ -44,16 +40,10 @@
         .slider-thumb::after { content: ''; width: 16px; height: 16px; background: var(--water-cyan); border-radius: 50%; box-shadow: 0 0 15px var(--water-cyan); }
         .slider-text { position: absolute; width: 100%; text-align: center; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); pointer-events: none; letter-spacing: 0.1em; }
 
-        /* 核心防溢出、高可读性深海毛玻璃面板 */
         .glass-panel { 
-            background: rgba(10, 12, 15, 0.85); 
-            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
-            border: 1px solid rgba(56, 189, 248, 0.25); 
-            padding: 2.2rem 1.6rem; 
-            border-radius: 16px; 
-            width: 90vw; /* 动态宽度防溢出 */
-            max-width: 360px; 
-            margin-bottom: 2rem; 
+            background: rgba(10, 12, 15, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
+            border: 1px solid rgba(56, 189, 248, 0.25); padding: 2.2rem 1.6rem; border-radius: 16px; 
+            width: 90vw; max-width: 360px; margin-bottom: 2rem; 
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(56,189,248,0.05); 
         }
         .glass-panel p { margin-bottom: 1.2rem; font-size: 0.98rem; line-height: 1.85; text-align: justify; color: rgba(240, 244, 248, 0.95); }
@@ -69,7 +59,7 @@
         .water-seal { width: 90px; height: 90px; margin: 0 auto 1.5rem; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(13, 15, 18, 0) 70%); border-radius: 50%; box-shadow: 0 0 35px rgba(56, 189, 248, 0.5); }
         .water-seal::after { content: ''; position: absolute; width: 30px; height: 30px; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 15px #fff; }
 
-        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(56, 189, 248, 0.5); color: var(--water-cyan); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(56,189,248,0.1); }
+        .save-btn { margin-top: 1rem; padding: 0.8rem 2rem; background: transparent; border: 1px solid rgba(56, 189, 248, 0.5); color: var(--water-cyan); font-family: var(--font-serif); font-size: 0.95rem; border-radius: 6px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 15px rgba(56,189,248,0.15); }
         .save-btn:active { background: rgba(56, 189, 248, 0.25); }
 
         #status-bar { position: absolute; top: env(safe-area-inset-top, 15px); left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(56,189,248,0.7); z-index: 100; pointer-events: none; letter-spacing: 0.05em; width: 90%; text-align: center; font-weight: 400; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
@@ -111,7 +101,6 @@
     </div>
 
     <div id="app">
-        <!-- 状态一：等待汇流 -->
         <div id="state1" class="state-layer active">
             <h1 ondblclick="DEV_MODE.simulateConnection()">水镜探源</h1>
             <p class="subtitle">在喧嚣中静止，让真实浮出水面</p>
@@ -125,10 +114,8 @@
             </div>
         </div>
 
-        <!-- 状态二：水镜成形 -->
         <div id="state2" class="state-layer"></div>
 
-        <!-- 状态三：破冰引导 -->
         <div id="state3" class="state-layer">
             <div class="glass-panel">
                 <p><span class="action-point">双手平放于桌面两侧，不靠向对方，不低头看手机。</span>抬头平视对方双眼，保持呼吸均匀。</p>
@@ -142,10 +129,9 @@
             </div>
         </div>
 
-        <!-- 状态四：澄澈凭证 -->
         <div id="state4" class="state-layer">
             <div class="water-seal"></div>
-            <div class="glass-panel" style="padding: 1.8rem 1.5rem;">
+            <div class="glass-panel" style="padding: 1.8rem 1.6rem;">
                 <p style="font-size: 0.85rem; text-align: center; color: rgba(56,189,248,0.7); margin-bottom: 1rem;">请一起读出以下内容：</p>
                 <p style="text-align: center; font-size: 0.95rem; line-height: 1.85;">
                     允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。
@@ -244,11 +230,11 @@
         };
 
         /**
-         * 全新：背景动态水纹湖面引擎 (3D 透视粒子波浪)
+         * 全新：高级动态线型湖面引擎 (平滑正弦水波纹路)
+         * 放弃了僵硬的点阵，改用平滑的层叠透明曲线营造夜湖涟漪感
          */
         const BgWaterEngine = {
             canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, time: 0,
-            cols: 35, rows: 25,
             init() {
                 this.ctx = this.canvas.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize());
                 this.start();
@@ -262,34 +248,43 @@
                 this.ctx.fillStyle = '#0d0f12';
                 this.ctx.fillRect(0, 0, w, h);
 
-                this.time += 0.015;
-                
-                const spacingX = w / this.cols;
-                const spacingY = (h * 0.7) / this.rows; 
-                const startY = h * 0.3; // 湖面从屏幕 30% 处开始向下延伸
-                
-                for(let i=0; i<this.rows; i++) {
-                    for(let j=0; j<this.cols; j++) {
-                        const x = j * spacingX;
-                        const z = i * spacingY;
-                        
-                        // 核心：利用复合正弦波产生水面起伏
-                        const wave1 = Math.sin(j * 0.2 + this.time) * 18;
-                        const wave2 = Math.cos(i * 0.3 + this.time * 0.8) * 12;
-                        
-                        // 3D 透视投影
-                        const perspective = 350 / (350 + z);
-                        const projX = w/2 + (x - w/2) * perspective;
-                        const projY = startY + z * perspective * 2 + (wave1 + wave2) * perspective;
-                        
-                        const size = Math.max(0.5, 2.8 * perspective);
-                        const alpha = Math.min(1, perspective * 1.8);
-                        
-                        this.ctx.fillStyle = `rgba(56, 189, 248, ${alpha * 0.6})`;
-                        this.ctx.beginPath();
-                        this.ctx.arc(projX, projY, size, 0, Math.PI*2);
-                        this.ctx.fill();
+                this.time += 0.006; // 极慢的呼吸感
+                const lineCount = 7; // 7层水波
+
+                for (let i = 0; i < lineCount; i++) {
+                    const depth = i / (lineCount - 1); // 0 (远) 到 1 (近)
+                    
+                    const baseY = h * 0.35 + depth * (h * 0.65); // 水面高度分布
+                    const amplitude = 8 + depth * 35; // 近处的波浪更大
+                    const frequency = 0.0015 + (1 - depth) * 0.002; // 远处的波纹更密集
+                    const speed = 0.8 + depth * 1.5; // 近处的波纹移动更快
+                    const opacity = 0.03 + depth * 0.12; // 近处更亮，整体保持低透明度防喧宾夺主
+
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, baseY);
+                    
+                    for (let x = 0; x <= w; x += 15) {
+                        // 有机复合正弦波
+                        const y = baseY 
+                            + Math.sin(x * frequency + this.time * speed) * amplitude
+                            + Math.cos(x * frequency * 1.8 - this.time * speed * 0.6) * (amplitude * 0.3);
+                        this.ctx.lineTo(x, y);
                     }
+                    
+                    this.ctx.strokeStyle = `rgba(56, 189, 248, ${opacity})`;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.stroke();
+                    
+                    // 渐变填充营造水体体积感
+                    this.ctx.lineTo(w, h);
+                    this.ctx.lineTo(0, h);
+                    this.ctx.closePath();
+                    
+                    const grad = this.ctx.createLinearGradient(0, baseY - amplitude, 0, h);
+                    grad.addColorStop(0, `rgba(56, 189, 248, ${opacity * 0.25})`);
+                    grad.addColorStop(1, `rgba(13, 15, 18, 0)`);
+                    this.ctx.fillStyle = grad;
+                    this.ctx.fill();
                 }
                 this.reqId = requestAnimationFrame(() => this.draw());
             }
@@ -317,7 +312,7 @@
                     { A: 8, w: 0.045, k: 3.5, p: 2 }
                 ];
                 
-                this.ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+                this.ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
                 this.ctx.beginPath();
                 
                 if (App.isHost) {
@@ -339,7 +334,7 @@
                 }
                 this.ctx.fill();
                 
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
                 this.ctx.lineWidth = 1.5;
                 this.ctx.stroke();
 
@@ -451,6 +446,13 @@
                         
                         // 浪漫金句
                         ctx.fillStyle = 'rgba(240, 244, 248, 0.9)'; ctx.font = 'italic 46px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“我在水镜前留了一个位置”', 540, 560);
+                        
+                        // 绘制水波装饰线
+                        ctx.beginPath();
+                        for (let x = 200; x <= 880; x += 10) {
+                            ctx.lineTo(x, 650 + Math.sin(x * 0.02) * 15);
+                        }
+                        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)'; ctx.lineWidth = 2; ctx.stroke();
                         
                         // 绘制二维码
                         ctx.drawImage(qrImg, 390, 800, 300, 300);
@@ -564,8 +566,8 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => { 
-            if (checkWeChat()) return; // 微信内阻断加载
-            BgWaterEngine.init(); // 启动底层 3D 湖面
+            if (checkWeChat()) return; 
+            BgWaterEngine.init(); 
             CanvasEngine.init(); 
             RTC.init(); 
             initUI(); 
