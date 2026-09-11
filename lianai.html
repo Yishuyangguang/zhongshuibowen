@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>水镜探源 | The Mirror Phase</title>
+    <!-- 引入优雅的古典衬线字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
@@ -101,6 +102,7 @@
     </div>
 
     <div id="app">
+        <!-- 状态一：等待汇流 -->
         <div id="state1" class="state-layer active">
             <h1 ondblclick="DEV_MODE.simulateConnection()">水镜探源</h1>
             <p class="subtitle">在喧嚣中静止，让真实浮出水面</p>
@@ -114,8 +116,10 @@
             </div>
         </div>
 
+        <!-- 状态二：水镜成形 -->
         <div id="state2" class="state-layer"></div>
 
+        <!-- 状态三：破冰引导 -->
         <div id="state3" class="state-layer">
             <div class="glass-panel">
                 <p><span class="action-point">双手平放于桌面两侧，不靠向对方，不低头看手机。</span>抬头平视对方双眼，保持呼吸均匀。</p>
@@ -129,9 +133,10 @@
             </div>
         </div>
 
+        <!-- 状态四：澄澈凭证 -->
         <div id="state4" class="state-layer">
             <div class="water-seal"></div>
-            <div class="glass-panel" style="padding: 1.8rem 1.6rem;">
+            <div class="glass-panel" style="padding: 1.8rem 1.5rem;">
                 <p style="font-size: 0.85rem; text-align: center; color: rgba(56,189,248,0.7); margin-bottom: 1rem;">请一起读出以下内容：</p>
                 <p style="text-align: center; font-size: 0.95rem; line-height: 1.85;">
                     允许对方有软弱、笨拙与不完美，建立不加评判的全然接纳。不以身体的提前越界替代心灵的深刻相通。用清醒的身体界限守护彼此的敬重，在目光与真实的言语中建立不被欲望绑架的深层信任。
@@ -193,14 +198,48 @@
             playWaterFlow() {
                 this.forceUnlock();
                 if (this.waterNode) return;
-                const noise = this.ctx.createBufferSource(); noise.buffer = this.createPinkNoise(); noise.loop = true;
-                const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 350; 
-                const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.01, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.6, this.ctx.currentTime + 2);
-                noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
-                noise.start(); this.waterNode = { source: noise, gain: gain };
+                const noise = this.ctx.createBufferSource(); 
+                noise.buffer = this.createPinkNoise(); 
+                noise.loop = true;
+                
+                // 核心重构：引入双LFO调制的仿生溪流水声引擎
+                const filter = this.ctx.createBiquadFilter(); 
+                filter.type = 'bandpass'; // 改为带通滤波，过滤掉沉闷的轰鸣，保留清冽水声
+                filter.frequency.value = 750; // 中心频率设定为清脆水滴频段
+                filter.Q.value = 1.2; // 增加共振，产生“水泡潺潺”的立体空间感
+                
+                // LFO 1: 模拟溪流缓慢平缓的起伏
+                const lfo1 = this.ctx.createOscillator();
+                lfo1.type = 'sine';
+                lfo1.frequency.value = 0.5;
+                const lfo1Gain = this.ctx.createGain();
+                lfo1Gain.gain.value = 400; // 频偏波动范围
+                lfo1.connect(lfo1Gain);
+                lfo1Gain.connect(filter.frequency);
+                lfo1.start();
+
+                // LFO 2: 模拟溪水撞击石头产生的细碎浪花声
+                const lfo2 = this.ctx.createOscillator();
+                lfo2.type = 'triangle';
+                lfo2.frequency.value = 2.2;
+                const lfo2Gain = this.ctx.createGain();
+                lfo2Gain.gain.value = 200;
+                lfo2.connect(lfo2Gain);
+                lfo2Gain.connect(filter.frequency);
+                lfo2.start();
+
+                const gain = this.ctx.createGain(); 
+                gain.gain.setValueAtTime(0.01, this.ctx.currentTime); 
+                gain.gain.exponentialRampToValueAtTime(0.4, this.ctx.currentTime + 2); // 音量极为克制，不吵闹
+
+                noise.connect(filter); 
+                filter.connect(gain); 
+                gain.connect(this.ctx.destination);
+                noise.start(); 
+                this.waterNode = { source: noise, gain: gain, lfos: [lfo1, lfo2] };
             },
             fadeWaterFlow() {
-                if (this.waterNode && this.ctx) this.waterNode.gain.gain.exponentialRampToValueAtTime(0.05, this.ctx.currentTime + 3);
+                if (this.waterNode && this.ctx) this.waterNode.gain.gain.exponentialRampToValueAtTime(0.08, this.ctx.currentTime + 3);
             },
             playDrop() {
                 this.forceUnlock();
@@ -224,15 +263,17 @@
                     this.waterNode.gain.gain.cancelScheduledValues(this.ctx.currentTime);
                     this.waterNode.gain.gain.setValueAtTime(this.waterNode.gain.gain.value, this.ctx.currentTime);
                     this.waterNode.gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-                    setTimeout(() => { if(this.waterNode) this.waterNode.source.stop(); this.waterNode = null; }, 500);
+                    setTimeout(() => { 
+                        if(this.waterNode) {
+                            this.waterNode.source.stop(); 
+                            if(this.waterNode.lfos) this.waterNode.lfos.forEach(l => l.stop());
+                            this.waterNode = null; 
+                        }
+                    }, 500);
                 }
             }
         };
 
-        /**
-         * 全新：高级动态线型湖面引擎 (平滑正弦水波纹路)
-         * 放弃了僵硬的点阵，改用平滑的层叠透明曲线营造夜湖涟漪感
-         */
         const BgWaterEngine = {
             canvas: document.getElementById('bgCanvas'), ctx: null, reqId: null, time: 0,
             init() {
@@ -248,23 +289,22 @@
                 this.ctx.fillStyle = '#0d0f12';
                 this.ctx.fillRect(0, 0, w, h);
 
-                this.time += 0.006; // 极慢的呼吸感
-                const lineCount = 7; // 7层水波
+                this.time += 0.006;
+                const lineCount = 7;
 
                 for (let i = 0; i < lineCount; i++) {
-                    const depth = i / (lineCount - 1); // 0 (远) 到 1 (近)
+                    const depth = i / (lineCount - 1); 
                     
-                    const baseY = h * 0.35 + depth * (h * 0.65); // 水面高度分布
-                    const amplitude = 8 + depth * 35; // 近处的波浪更大
-                    const frequency = 0.0015 + (1 - depth) * 0.002; // 远处的波纹更密集
-                    const speed = 0.8 + depth * 1.5; // 近处的波纹移动更快
-                    const opacity = 0.03 + depth * 0.12; // 近处更亮，整体保持低透明度防喧宾夺主
+                    const baseY = h * 0.35 + depth * (h * 0.65); 
+                    const amplitude = 8 + depth * 35; 
+                    const frequency = 0.0015 + (1 - depth) * 0.002; 
+                    const speed = 0.8 + depth * 1.5; 
+                    const opacity = 0.03 + depth * 0.12; 
 
                     this.ctx.beginPath();
                     this.ctx.moveTo(0, baseY);
                     
                     for (let x = 0; x <= w; x += 15) {
-                        // 有机复合正弦波
                         const y = baseY 
                             + Math.sin(x * frequency + this.time * speed) * amplitude
                             + Math.cos(x * frequency * 1.8 - this.time * speed * 0.6) * (amplitude * 0.3);
@@ -275,7 +315,6 @@
                     this.ctx.lineWidth = 1;
                     this.ctx.stroke();
                     
-                    // 渐变填充营造水体体积感
                     this.ctx.lineTo(w, h);
                     this.ctx.lineTo(0, h);
                     this.ctx.closePath();
@@ -412,7 +451,6 @@
             const modal = document.getElementById('posterModal');
             const closeBtn = document.getElementById('closeModalBtn');
 
-            // 全新：生成专属电影级邀请海报
             inviteBtn.addEventListener('click', async () => {
                 if (window.location.protocol === 'file:') {
                     alert("⚠️ 协议错误提醒 ⚠️\n\n请使用 VS Code 'Live Server' 或部署在 HTTP 环境，才能生成有效连接和海报！"); return;
@@ -425,52 +463,40 @@
                 const url = window.location.href;
                 
                 try {
-                    // 1. 生成二维码
                     const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: '#ffffff', light: '#00000000' } });
                     const qrImg = new Image();
                     qrImg.src = qrDataUrl;
                     
                     qrImg.onload = () => {
-                        // 2. 绘制海报
                         const canvas = document.getElementById('posterCanvas');
                         const ctx = canvas.getContext('2d');
                         
-                        // 底色与星晕
                         ctx.fillStyle = '#0d0f12'; ctx.fillRect(0, 0, 1080, 1920);
                         const grad = ctx.createRadialGradient(540, 960, 50, 540, 960, 800);
                         grad.addColorStop(0, 'rgba(56, 189, 248, 0.25)'); grad.addColorStop(1, 'rgba(13, 15, 18, 0)');
                         ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920);
                         
-                        // 顶部标题
                         ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '70px "Noto Serif SC", serif'; ctx.fillText('水 镜 探 源', 540, 380);
                         
-                        // 浪漫金句
                         ctx.fillStyle = 'rgba(240, 244, 248, 0.9)'; ctx.font = 'italic 46px "Playfair Display", "Noto Serif SC", serif'; ctx.fillText('“我在水镜前留了一个位置”', 540, 560);
                         
-                        // 绘制水波装饰线
                         ctx.beginPath();
                         for (let x = 200; x <= 880; x += 10) {
                             ctx.lineTo(x, 650 + Math.sin(x * 0.02) * 15);
                         }
                         ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)'; ctx.lineWidth = 2; ctx.stroke();
                         
-                        // 绘制二维码
                         ctx.drawImage(qrImg, 390, 800, 300, 300);
                         
-                        // 底部文案
                         ctx.fillStyle = 'rgba(56, 189, 248, 0.8)'; ctx.font = '36px "Noto Serif SC", serif'; ctx.fillText('长按识别二维码 · 进入专属水域', 540, 1300);
-                        
-                        // 防封提示
                         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.font = '28px "Noto Serif SC", serif'; ctx.fillText('请点击右上角「在默认浏览器中打开」以唤醒传感器', 540, 1380);
 
-                        // 3. 显示弹窗
                         document.getElementById('posterImg').src = canvas.toDataURL('image/png');
                         modal.classList.add('show');
                         inviteBtn.innerText = "生成专属邀请海报";
                     };
                 } catch (e) {
-                    inviteBtn.innerText = "海报生成失败，请重试";
-                    console.error(e);
+                    inviteBtn.innerText = "海报生成失败，请重试"; console.error(e);
                 }
             });
 
@@ -545,7 +571,6 @@
             }
         };
 
-        // 微信防拦截遮罩层检测
         function checkWeChat() {
             const ua = navigator.userAgent.toLowerCase();
             if (ua.match(/MicroMessenger/i) == "micromessenger") {
